@@ -141,12 +141,12 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium transition-colors shadow-2xs">
+          <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium transition-colors shadow-2xs">
             <Filter className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-transparent text-slate-900 font-semibold focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent text-slate-900 font-semibold border-none focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-white">Toutes Catégories</option>
               <option value="moniteur" className="bg-white">Moniteurs Multiparamétriques</option>
@@ -158,11 +158,11 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
             </select>
           </div>
 
-          <div className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium transition-colors shadow-2xs">
+          <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium transition-colors shadow-2xs">
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="bg-transparent text-slate-900 font-semibold focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent text-slate-900 font-semibold border-none focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-white">Tous les Statuts</option>
               <option value="operational" className="bg-white">Opérationnel</option>

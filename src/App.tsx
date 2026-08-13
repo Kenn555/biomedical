@@ -32,6 +32,7 @@ import { DashboardAnalytics } from './components/DashboardAnalytics';
 import { CriticalAlertsHistory } from './components/CriticalAlertsHistory';
 import { AdminUsersAudit } from './components/AdminUsersAudit';
 import { AiAssistantDrawer } from './components/AiAssistantDrawer';
+import { VideoConferenceModal } from './components/VideoConferenceModal';
 import { ToastContainer, Toast } from './components/ToastContainer';
 import { OfflineBanner } from './components/OfflineBanner';
 
@@ -85,6 +86,8 @@ export default function App() {
   const [selectedTicketForReport, setSelectedTicketForReport] = useState<IncidentTicket | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState<boolean>(false);
+  const [isVideoConferenceOpen, setIsVideoConferenceOpen] = useState<boolean>(false);
+  const [selectedTicketForVideoCall, setSelectedTicketForVideoCall] = useState<IncidentTicket | null>(null);
 
   // Toast Notifications State
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -475,6 +478,10 @@ export default function App() {
         onSelectFacility={setSelectedFacility}
         onOpenReportModal={() => setIsReportModalOpen(true)}
         onToggleAiDrawer={() => setIsAiDrawerOpen(!isAiDrawerOpen)}
+        onOpenVideoCall={() => {
+          setSelectedTicketForVideoCall(null);
+          setIsVideoConferenceOpen(true);
+        }}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         pendingTicketsCount={pendingTicketsCount}
@@ -519,7 +526,9 @@ export default function App() {
             }}
             onOpenTeleSession={(tkt) => {
               const eq = equipmentList.find((e) => e.id === tkt.equipmentId);
+              setSelectedTicketForVideoCall(tkt);
               if (eq) setSelectedEquipmentForTeleSession(eq);
+              setIsVideoConferenceOpen(true);
             }}
             onOpenInterventionReport={(tkt) => setSelectedTicketForReport(tkt)}
             onAssignTicket={handleAssignTicket}
@@ -628,6 +637,17 @@ export default function App() {
         onClose={() => setIsAiDrawerOpen(false)}
         currentUser={currentUser}
         selectedEquipment={selectedEquipmentForModal || selectedEquipmentForDiag}
+      />
+
+      <VideoConferenceModal
+        isOpen={isVideoConferenceOpen}
+        onClose={() => {
+          setIsVideoConferenceOpen(false);
+          setSelectedTicketForVideoCall(null);
+        }}
+        ticket={selectedTicketForVideoCall}
+        equipment={selectedEquipmentForTeleSession || selectedEquipmentForModal}
+        currentUser={currentUser}
       />
 
       {/* Footer */}

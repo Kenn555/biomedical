@@ -11,7 +11,8 @@ import {
   BarChart3,
   Wifi,
   WifiOff,
-  ShieldAlert
+  ShieldAlert,
+  Video
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 
@@ -24,6 +25,7 @@ interface HeaderProps {
   onSelectFacility: (facility: string) => void;
   onOpenReportModal: () => void;
   onToggleAiDrawer: () => void;
+  onOpenVideoCall?: () => void;
   activeTab: string;
   onSelectTab: (tab: string) => void;
   pendingTicketsCount: number;
@@ -40,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectFacility,
   onOpenReportModal,
   onToggleAiDrawer,
+  onOpenVideoCall,
   activeTab,
   onSelectTab,
   pendingTicketsCount,
@@ -94,14 +97,14 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
             {/* Facility Selector */}
             <div
-              className="hidden md:flex items-center space-x-1.5 bg-slate-100/80 border border-slate-200/80 rounded-xl px-2.5 py-1.5 text-xs text-slate-700"
+              className="hidden md:flex items-center space-x-1.5 bg-slate-100/90 rounded-xl px-2.5 py-1.5 text-xs text-slate-700"
               title="Filtrer par établissement"
             >
               <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <select
                 value={selectedFacility}
                 onChange={(e) => onSelectFacility(e.target.value)}
-                className="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer max-w-[140px] lg:max-w-[170px] truncate"
+                className="bg-transparent text-slate-800 font-semibold border-none focus:outline-none cursor-pointer max-w-[140px] lg:max-w-[170px] truncate"
               >
                 <option value="ALL" className="bg-white text-slate-900">
                   Tous Établissements
@@ -116,7 +119,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Role Switcher */}
             <div
-              className="flex items-center space-x-1.5 bg-slate-100/80 border border-slate-200/80 rounded-xl px-2.5 py-1.5"
+              className="flex items-center space-x-1.5 bg-slate-100/90 rounded-xl px-2.5 py-1.5"
               title="Changer le profil utilisateur actif"
             >
               <Users className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -130,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
                     const u = users.find((usr) => usr.id === e.target.value);
                     if (u) onSelectUser(u);
                   }}
-                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer max-w-[110px] xs:max-w-[150px] sm:max-w-[200px] truncate pr-1"
+                  className="bg-transparent text-xs font-bold text-slate-900 border-none focus:outline-none cursor-pointer max-w-[110px] xs:max-w-[150px] sm:max-w-[200px] truncate pr-1"
                 >
                   {users.map((usr) => (
                     <option key={usr.id} value={usr.id} className="bg-white text-slate-900">
@@ -150,6 +153,18 @@ export const Header: React.FC<HeaderProps> = ({
               <PlusCircle className="w-4 h-4 shrink-0" />
               <span className="hidden md:inline">Signaler Panne</span>
             </button>
+
+            {/* Visioconférence Directe button */}
+            {onOpenVideoCall && (
+              <button
+                onClick={onOpenVideoCall}
+                className="group relative flex items-center justify-center space-x-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 p-2.5 sm:px-3.5 sm:py-2 rounded-xl font-extrabold text-xs transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                title="Lancer une visioconférence de télé-diagnostic en direct"
+              >
+                <Video className="w-4 h-4 text-rose-600 shrink-0 animate-pulse" />
+                <span className="hidden lg:inline">Visioconférence Directe</span>
+              </button>
+            )}
 
             {/* Support Assistant Toggle Button */}
             <button

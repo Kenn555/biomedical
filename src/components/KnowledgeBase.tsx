@@ -106,12 +106,12 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ articles, onAddArt
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-medium">
+          <div className="flex items-center space-x-1.5 bg-slate-100/90 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-medium">
             <Filter className="w-3.5 h-3.5 text-slate-500" />
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer"
+              className="bg-transparent text-slate-800 font-semibold border-none focus:outline-none cursor-pointer"
             >
               <option value="ALL" className="bg-white">Toutes Catégories</option>
               <option value="ecg" className="bg-white">Électrocardiographes (ECG)</option>

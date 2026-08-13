@@ -534,12 +534,12 @@ export const CriticalAlertsHistory: React.FC<CriticalAlertsHistoryProps> = ({
           {/* Filter Selectors */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Urgency Level Filter */}
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium">
+            <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium">
               <Filter className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <select
                 value={urgencyFilter}
                 onChange={(e) => setUrgencyFilter(e.target.value)}
-                className="bg-transparent text-slate-900 font-bold focus:outline-none cursor-pointer text-xs"
+                className="bg-transparent text-slate-900 font-bold border-none focus:outline-none cursor-pointer text-xs"
               >
                 <option value="CRITICAL_ONLY">Urgence Vitale & Élevée</option>
                 <option value="critical_vital">Urgence Vitale Uniquement</option>
@@ -549,7 +549,7 @@ export const CriticalAlertsHistory: React.FC<CriticalAlertsHistoryProps> = ({
             </div>
 
             {/* Site Filter */}
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium">
+            <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium">
               <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <select
                 value={facilityFilter}
@@ -557,7 +557,7 @@ export const CriticalAlertsHistory: React.FC<CriticalAlertsHistoryProps> = ({
                   setFacilityFilter(e.target.value);
                   if (onSelectFacility) onSelectFacility(e.target.value);
                 }}
-                className="bg-transparent text-slate-900 font-bold focus:outline-none cursor-pointer text-xs max-w-[160px] truncate"
+                className="bg-transparent text-slate-900 font-bold border-none focus:outline-none cursor-pointer text-xs max-w-[160px] truncate"
               >
                 <option value="ALL">Tous les Sites</option>
                 {facilities.map((fac) => (
@@ -569,11 +569,11 @@ export const CriticalAlertsHistory: React.FC<CriticalAlertsHistoryProps> = ({
             </div>
 
             {/* Status Filter */}
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium">
+            <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-transparent text-slate-900 font-bold focus:outline-none cursor-pointer text-xs"
+                className="bg-transparent text-slate-900 font-bold border-none focus:outline-none cursor-pointer text-xs"
               >
                 <option value="ALL">Tous les Statuts</option>
                 <option value="resolved">Alertes Clôturées / Résolues</option>

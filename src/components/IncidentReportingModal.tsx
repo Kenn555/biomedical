@@ -163,7 +163,7 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
               <select
                 value={selectedEquipmentId}
                 onChange={(e) => setSelectedEquipmentId(e.target.value)}
-                className="w-full bg-slate-50 hover:bg-slate-100/80 text-slate-900 border border-slate-300/80 rounded-xl px-3.5 py-2.5 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all cursor-pointer shadow-2xs"
+                className="w-full bg-slate-50 hover:bg-slate-100/80 text-slate-900 border-none rounded-xl px-3.5 py-2.5 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:bg-white transition-all cursor-pointer shadow-2xs"
               >
                 {equipmentList.map((eq) => (
                   <option key={eq.id} value={eq.id} className="bg-white text-slate-900 py-1">

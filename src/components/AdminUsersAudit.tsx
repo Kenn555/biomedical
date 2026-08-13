@@ -391,12 +391,12 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
               />
             </div>
 
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs">
+            <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-1.5 text-xs">
               <Filter className="w-3.5 h-3.5 text-slate-500" />
               <select
                 value={userRoleFilter}
                 onChange={(e) => setUserRoleFilter(e.target.value)}
-                className="bg-transparent font-semibold text-slate-800 focus:outline-none cursor-pointer"
+                className="bg-transparent font-semibold text-slate-800 border-none focus:outline-none cursor-pointer"
               >
                 <option value="ALL">Tous les Rôles</option>
                 <option value="technician">Technicien Biomédical</option>
@@ -614,12 +614,12 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
               />
             </div>
 
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs">
+            <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-1.5 text-xs">
               <Filter className="w-3.5 h-3.5 text-slate-500" />
               <select
                 value={eqCategoryFilter}
                 onChange={(e) => setEqCategoryFilter(e.target.value)}
-                className="bg-transparent font-semibold text-slate-800 focus:outline-none cursor-pointer"
+                className="bg-transparent font-semibold text-slate-800 border-none focus:outline-none cursor-pointer"
               >
                 <option value="ALL">Toutes les Catégories</option>
                 <option value="moniteur">Moniteur Multiparamétrique</option>
@@ -769,7 +769,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                   <select
                     value={userRole}
                     onChange={(e) => setUserRole(e.target.value as UserRole)}
-                    className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs cursor-pointer font-semibold"
+                    className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:bg-white transition-all shadow-2xs cursor-pointer font-semibold"
                   >
                     <option value="technician">Technicien Biomédical</option>
                     <option value="engineer">Ingénieur Biomédical</option>

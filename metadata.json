@@ -1,6 +1,6 @@
 {
   "name": "Plateforme de Maintenance Biomédicale",
   "description": "Plateforme collaborative pour la gestion, le diagnostic à distance et la maintenance des équipements biomédicaux en télémédecine.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

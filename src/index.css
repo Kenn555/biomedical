@@ -11,3 +11,13 @@
     scrollbar-width: none;  /* Firefox */
   }
 }
+
+select {
+  border: none !important;
+  outline: none !important;
+}
+select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+

@@ -179,12 +179,12 @@ export const TicketList: React.FC<TicketListProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium transition-colors shadow-2xs">
+          <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium transition-colors shadow-2xs">
             <Filter className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-transparent text-slate-900 font-semibold focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent text-slate-900 font-semibold border-none focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-white">Tous les Statuts</option>
               <option value="new" className="bg-white">Nouveau / Signalé</option>
@@ -196,11 +196,11 @@ export const TicketList: React.FC<TicketListProps> = ({
             </select>
           </div>
 
-          <div className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium transition-colors shadow-2xs">
+          <div className="flex items-center space-x-2 bg-slate-100/90 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium transition-colors shadow-2xs">
             <select
               value={urgencyFilter}
               onChange={(e) => setUrgencyFilter(e.target.value)}
-              className="bg-transparent text-slate-900 font-semibold focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent text-slate-900 font-semibold border-none focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-white">Toutes Urgences</option>
               <option value="critical_vital" className="bg-white">URGENCE VITALE</option>
@@ -422,7 +422,7 @@ export const TicketList: React.FC<TicketListProps> = ({
                               <select
                                 value={ticket.assignedTo?.id || ''}
                                 onChange={(e) => onAssignTicket(ticket.id, e.target.value)}
-                                className="bg-slate-50 text-xs font-semibold text-slate-800 border border-slate-200 rounded-lg px-2 py-1.5 w-full focus:outline-none focus:border-slate-400 cursor-pointer"
+                                className="bg-slate-50 text-xs font-semibold text-slate-800 border-none rounded-lg px-2 py-1.5 w-full focus:outline-none cursor-pointer"
                               >
                                 <option value="">-- Non assigné --</option>
                                 {technicians.map((tech) => (
@@ -442,7 +442,7 @@ export const TicketList: React.FC<TicketListProps> = ({
                             <select
                               value={ticket.status}
                               onChange={(e) => onUpdateStatus(ticket.id, e.target.value as TicketStatus)}
-                              className="bg-slate-50 text-xs font-bold text-emerald-700 border border-slate-200 rounded-lg px-2.5 py-1.5 w-full focus:outline-none cursor-pointer"
+                              className="bg-slate-50 text-xs font-bold text-emerald-700 border-none rounded-lg px-2.5 py-1.5 w-full focus:outline-none cursor-pointer"
                             >
                               <option value="new">Nouveau / Signalé</option>
                               <option value="diagnosed">Diagnostiqué</option>
