@@ -3,6 +3,15 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
+
+// Répertoire du module courant, quel que soit le contexte d'exécution :
+// - en dev (tsx, ESM) : import.meta.url est une URL valide ;
+// - en production, le bundle CJS généré par esbuild remplace import.meta.url
+//   par un objet vide (donc undefined) → repli sur __dirname fourni par Node.
+const MODULE_DIR = ((): string => {
+  if (import.meta.url) return path.dirname(fileURLToPath(import.meta.url));
+  return __dirname;
+})();
 import {
   MOCK_USERS,
   MOCK_EQUIPMENT,
@@ -13,14 +22,11 @@ import {
   MOCK_FACILITIES,
 } from '../src/data/mockData';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Le chemin de la base peut être surchargé via DB_PATH (utilisé par les tests)
 // ou DATA_DIR (dossier de données alternatif).
 const DATA_DIR = process.env.DATA_DIR
   ? path.resolve(process.env.DATA_DIR)
-  : path.join(__dirname, '..', 'data');
+  : path.join(MODULE_DIR, '..', 'data');
 const DB_PATH = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
   : path.join(DATA_DIR, 'biomed.db');
