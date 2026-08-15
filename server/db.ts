@@ -1,4 +1,4 @@
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -16,10 +16,16 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const DB_PATH = path.join(DATA_DIR, 'biomed.db');
+// Le chemin de la base peut être surchargé via DB_PATH (utilisé par les tests)
+// ou DATA_DIR (dossier de données alternatif).
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, '..', 'data');
+const DB_PATH = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.join(DATA_DIR, 'biomed.db');
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 export const db = new DatabaseSync(DB_PATH);
 
@@ -59,6 +65,7 @@ CREATE TABLE IF NOT EXISTS equipment (
   lastMaintenanceDate TEXT,
   nextPreventiveMaintenance TEXT,
   telemetry TEXT,
+  imageUrl TEXT,
   manualUrl TEXT,
   schematicUrl TEXT,
   notes TEXT
@@ -143,6 +150,21 @@ CREATE TABLE IF NOT EXISTS sessions (
 `;
 
 db.exec(SCHEMA);
+
+// Migration : bases existantes créées avant l'ajout de la colonne imageUrl
+// (CREATE TABLE IF NOT EXISTS ne modifie pas les tables déjà présentes).
+function migrateEquipmentImageUrl(): void {
+  const cols = db.prepare('PRAGMA table_info(equipment)').all() as { name: string }[];
+  if (cols.some((c) => c.name === 'imageUrl')) return;
+  db.prepare('ALTER TABLE equipment ADD COLUMN imageUrl TEXT').run();
+  // Rétro-remplissage : associe la photo du seed aux équipements existants
+  for (const eq of MOCK_EQUIPMENT) {
+    if (eq.imageUrl) {
+      db.prepare('UPDATE equipment SET imageUrl = ? WHERE id = ?').run(eq.imageUrl, eq.id);
+    }
+  }
+}
+migrateEquipmentImageUrl();
 
 // ---------------------------------------------------------------------------
 // Entity registry (camelCase column names == API field names)
@@ -258,7 +280,7 @@ export function insertRow(entity: EntityName, data: Record<string, unknown>): Re
   const row = serializeRow({ id: data.id ?? `id-${randomUUID()}`, ...data }, def);
   const cols = Object.keys(row);
   const placeholders = cols.map(() => '?').join(', ');
-  db.prepare(`INSERT INTO ${def.table} (${cols.join(', ')}) VALUES (${placeholders})`).run(...cols.map((c) => row[c]));
+  db.prepare(`INSERT INTO ${def.table} (${cols.join(', ')}) VALUES (${placeholders})`).run(...cols.map((c) => row[c] as SQLInputValue));
   return getById(entity, row.id as string)!;
 }
 
@@ -270,7 +292,7 @@ export function updateRow(entity: EntityName, id: string, data: Record<string, u
   const row = serializeRow(merged, def);
   const cols = Object.keys(row).filter((c) => c !== 'id');
   const assignments = cols.map((c) => `${c} = ?`).join(', ');
-  db.prepare(`UPDATE ${def.table} SET ${assignments} WHERE id = ?`).run(...cols.map((c) => row[c]), id);
+  db.prepare(`UPDATE ${def.table} SET ${assignments} WHERE id = ?`).run(...cols.map((c) => row[c] as SQLInputValue), id);
   return getById(entity, id);
 }
 
@@ -282,7 +304,7 @@ export function deleteRow(entity: EntityName, id: string): boolean {
 
 export function findBy(entity: EntityName, field: string, value: unknown): Record<string, unknown> | null {
   const def = ENTITIES[entity];
-  const row = db.prepare(`SELECT * FROM ${def.table} WHERE ${field} = ?`).get(value) as Record<string, unknown> | undefined;
+  const row = db.prepare(`SELECT * FROM ${def.table} WHERE ${field} = ?`).get(value as SQLInputValue) as Record<string, unknown> | undefined;
   return row ? deserializeRow(row, def) : null;
 }
 

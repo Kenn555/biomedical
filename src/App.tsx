@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import {
   UserProfile,
   Equipment,
@@ -20,21 +20,26 @@ import {
 
 import { Header } from './components/Header';
 import { RoleContextBar } from './components/RoleContextBar';
-import { EquipmentList } from './components/EquipmentList';
 import { EquipmentModal } from './components/EquipmentModal';
-import { TicketList } from './components/TicketList';
 import { IncidentReportingModal } from './components/IncidentReportingModal';
 import { RemoteDiagnosticModal } from './components/RemoteDiagnosticModal';
 import { TeleMaintenanceSession } from './components/TeleMaintenanceSession';
 import { InterventionModal } from './components/InterventionModal';
-import { KnowledgeBase } from './components/KnowledgeBase';
-import { DashboardAnalytics } from './components/DashboardAnalytics';
-import { CriticalAlertsHistory } from './components/CriticalAlertsHistory';
-import { AdminUsersAudit } from './components/AdminUsersAudit';
 import { AiAssistantDrawer } from './components/AiAssistantDrawer';
 import { VideoConferenceModal } from './components/VideoConferenceModal';
 import { ToastContainer, Toast } from './components/ToastContainer';
 import { OfflineBanner } from './components/OfflineBanner';
+import { LoginScreen } from './components/LoginScreen';
+import { AppLoader, TabSkeleton, TopProgressBar } from './components/Loading';
+
+// Onglets chargés à la demande (code-splitting) : le bundle initial est plus
+// léger (Recharts notamment n'est chargé qu'avec l'onglet Supervision).
+const EquipmentList = lazy(() => import('./components/EquipmentList').then((m) => ({ default: m.EquipmentList })));
+const TicketList = lazy(() => import('./components/TicketList').then((m) => ({ default: m.TicketList })));
+const KnowledgeBase = lazy(() => import('./components/KnowledgeBase').then((m) => ({ default: m.KnowledgeBase })));
+const DashboardAnalytics = lazy(() => import('./components/DashboardAnalytics').then((m) => ({ default: m.DashboardAnalytics })));
+const CriticalAlertsHistory = lazy(() => import('./components/CriticalAlertsHistory').then((m) => ({ default: m.CriticalAlertsHistory })));
+const AdminUsersAudit = lazy(() => import('./components/AdminUsersAudit').then((m) => ({ default: m.AdminUsersAudit })));
 
 import {
   getCachedData,
@@ -46,9 +51,15 @@ import {
   getLastCacheTimestamp,
   PendingSyncAction
 } from './lib/offlineStorage';
+import { api, loadAllData } from './lib/api';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(MOCK_USERS[0]); // Technicien
+  const [currentUser, setCurrentUser] = useState<UserProfile>(
+    MOCK_USERS.find((u) => u.role === 'admin') || MOCK_USERS[0]
+  );
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [tabLoading, setTabLoading] = useState<boolean>(false);
   const [users, setUsers] = useState<UserProfile[]>(() =>
     getCachedData('biomed_users_v1', MOCK_USERS)
   );
@@ -64,6 +75,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() =>
     getCachedData(STORAGE_KEYS.AUDIT, MOCK_AUDIT_LOGS)
   );
+  const [facilities, setFacilities] = useState<string[]>(MOCK_FACILITIES);
 
   // Network & Cache State
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -201,8 +213,8 @@ export default function App() {
   };
 
 
-  // Incident Ticket Submission
-  const handleCreateTicket = (data: {
+  // Incident Ticket Submission (server-first, fallback local si hors-ligne)
+  const handleCreateTicket = async (data: {
     equipmentId: string;
     description: string;
     symptoms: string[];
@@ -218,6 +230,50 @@ export default function App() {
     else if (data.urgency === 'high') hours = 4;
     else if (data.urgency === 'low') hours = 48;
 
+    // Optimistic : l'équipement passe en panne dans l'UI immédiatement
+    setEquipmentList(
+      equipmentList.map((item) =>
+        item.id === eq.id
+          ? {
+              ...item,
+              status: data.urgency === 'critical_vital' ? 'critical' : 'breakdown',
+              telemetry: {
+                ...item.telemetry,
+                errorCode: data.errorCode || item.telemetry.errorCode || 'ERR-SYS-01',
+              },
+            }
+          : item
+      )
+    );
+
+    const offline = !isOnline || isSimulatedOffline;
+
+    if (!offline) {
+      try {
+        // Server-first : le backend crée le ticket (id/code autoritatifs)
+        const serverTicket = await api.createTicket(data);
+        setTickets([serverTicket, ...tickets]);
+        logAuditAction('Création Signalement Incident', `Ticket ${serverTicket.code}`, `Équipement ${eq.name}`);
+        if (data.urgency === 'critical_vital' || data.urgency === 'high') {
+          addToast(
+            'danger',
+            '🚨 INCIDENT CRITIQUE DÉCLARÉ',
+            `Alerte : Nouvel incident grave (${serverTicket.code}) sur ${eq.name} (${eq.facility}). SLA engagé: ${hours}h.`
+          );
+        } else {
+          addToast(
+            'warning',
+            'Nouveau Signalement Incident',
+            `Signalement ${serverTicket.code} enregistré pour l'équipement ${eq.name}.`
+          );
+        }
+        return;
+      } catch {
+        // fallthrough : conservation locale + file d'attente
+      }
+    }
+
+    // Fallback local (hors ligne ou serveur injoignable)
     const newTicket: IncidentTicket = {
       id: `tkt-${Date.now()}`,
       code: `INC-2026-${Math.floor(100 + Math.random() * 900)}`,
@@ -247,54 +303,19 @@ export default function App() {
       ],
     };
 
-    // Update equipment status if breakdown
-    setEquipmentList(
-      equipmentList.map((item) =>
-        item.id === eq.id
-          ? {
-              ...item,
-              status: data.urgency === 'critical_vital' ? 'critical' : 'breakdown',
-              telemetry: {
-                ...item.telemetry,
-                errorCode: data.errorCode || item.telemetry.errorCode || 'ERR-SYS-01',
-              },
-            }
-          : item
-      )
-    );
-
     setTickets([newTicket, ...tickets]);
     logAuditAction('Création Signalement Incident', `Ticket ${newTicket.code}`, `Équipement ${eq.name}`);
-
-    // Queue action if offline
-    if (!isOnline || isSimulatedOffline) {
-      const action = queueOfflineAction({
-        type: 'CREATE_INCIDENT',
-        payload: newTicket,
-      });
-      setPendingActions(getPendingOfflineActions());
-      addToast(
-        'warning',
-        '⚡ Action Enregistrée Hors Ligne',
-        `Le ticket ${newTicket.code} a été sauvegardé localement en cache. Il sera transmis lors du rétablissement du réseau.`
-      );
-    } else if (data.urgency === 'critical_vital' || data.urgency === 'high') {
-      addToast(
-        'danger',
-        '🚨 INCIDENT CRITIQUE DÉCLARÉ',
-        `Alerte : Nouvel incident grave (${newTicket.code}) sur ${eq.name} (${eq.facility}). SLA engagé: ${hours}h.`
-      );
-    } else {
-      addToast(
-        'warning',
-        'Nouveau Signalement Incident',
-        `Signalement ${newTicket.code} enregistré pour l'équipement ${eq.name}.`
-      );
-    }
+    queueOfflineAction({ type: 'CREATE_INCIDENT', payload: newTicket });
+    setPendingActions(getPendingOfflineActions());
+    addToast(
+      'warning',
+      offline ? '⚡ Action Enregistrée Hors Ligne' : 'Serveur injoignable',
+      `Le ticket ${newTicket.code} a été conservé localement. Il sera transmis lors du rétablissement du réseau.`
+    );
   };
 
-  // Ticket Assignment
-  const handleAssignTicket = (ticketId: string, technicianId: string) => {
+  // Ticket Assignment (optimistic + synchronisation serveur)
+  const handleAssignTicket = async (ticketId: string, technicianId: string) => {
     const tech = users.find((u) => u.id === technicianId);
     const targetTicket = tickets.find((t) => t.id === ticketId);
 
@@ -328,10 +349,23 @@ export default function App() {
         `Le ticket ${targetTicket.code} a été ${tech ? `assigné à ${tech.name}` : 'désaffecté'}.`
       );
     }
+
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        const updated = await api.assignTicket(ticketId, technicianId);
+        setTickets((prev) => prev.map((t) => (t.id === ticketId ? updated : t)));
+      } catch {
+        addToast(
+          'warning',
+          'Synchronisation différée',
+          "L'affectation sera transmise au serveur lors du rétablissement du réseau."
+        );
+      }
+    }
   };
 
-  // Ticket Status Update
-  const handleUpdateTicketStatus = (ticketId: string, newStatus: TicketStatus) => {
+  // Ticket Status Update (optimistic + synchronisation serveur)
+  const handleUpdateTicketStatus = async (ticketId: string, newStatus: TicketStatus) => {
     const tkt = tickets.find((t) => t.id === ticketId);
 
     const statusLabels: Record<TicketStatus, string> = {
@@ -380,7 +414,9 @@ export default function App() {
 
     logAuditAction('Changement Statut Ticket', `Ticket ${ticketId}`, `Nouveau statut: ${newStatus}`);
 
-    if (!isOnline || isSimulatedOffline) {
+    const offline = !isOnline || isSimulatedOffline;
+
+    if (offline) {
       queueOfflineAction({
         type: 'UPDATE_STATUS',
         payload: { ticketId, newStatus },
@@ -391,18 +427,36 @@ export default function App() {
         '⚡ Mise à jour enregistrée en cache',
         `Changement de statut pour le ticket ${tkt?.code || ticketId} sauvegardé hors-ligne.`
       );
-    } else if (tkt) {
-      const isComplete = newStatus === 'validated' || newStatus === 'resolved';
+      return;
+    }
+
+    try {
+      const updated = await api.updateTicketStatus(ticketId, newStatus);
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? updated : t)));
+      if (tkt) {
+        const isComplete = newStatus === 'validated' || newStatus === 'resolved';
+        addToast(
+          isComplete ? 'success' : 'info',
+          'Changement de Statut Ticket',
+          `Le ticket ${tkt.code} est désormais "${statusLabels[newStatus] || newStatus}".`
+        );
+      }
+    } catch {
+      queueOfflineAction({
+        type: 'UPDATE_STATUS',
+        payload: { ticketId, newStatus },
+      });
+      setPendingActions(getPendingOfflineActions());
       addToast(
-        isComplete ? 'success' : 'info',
-        'Changement de Statut Ticket',
-        `Le ticket ${tkt.code} est désormais "${statusLabels[newStatus] || newStatus}".`
+        'warning',
+        'Synchronisation différée',
+        `Le changement de statut du ticket ${tkt?.code || ticketId} sera transmis plus tard.`
       );
     }
   };
 
-  // Intervention Report Saved
-  const handleSaveInterventionReport = (reportData: Partial<InterventionReport>) => {
+  // Intervention Report Saved (server-first, fallback local si hors-ligne)
+  const handleSaveInterventionReport = async (reportData: Partial<InterventionReport>) => {
     if (reportData.ticketId) {
       handleUpdateTicketStatus(reportData.ticketId, reportData.validatedByEngineer ? 'validated' : 'resolved');
     }
@@ -412,49 +466,251 @@ export default function App() {
       'Rapport d\'Intervention Certifié',
       'Le PV d\'intervention a été enregistré avec succès et l\'équipement certifié opérationnel.'
     );
+
+    const offline = !isOnline || isSimulatedOffline;
+    if (offline) {
+      queueOfflineAction({ type: 'ADD_REPORT', payload: reportData });
+      setPendingActions(getPendingOfflineActions());
+      return;
+    }
+
+    try {
+      await api.createReport(reportData);
+      // Le serveur a aussi mis à jour le statut du ticket : resynchronisation
+      const freshTickets = await api.getTickets();
+      setTickets(freshTickets);
+    } catch {
+      queueOfflineAction({ type: 'ADD_REPORT', payload: reportData });
+      setPendingActions(getPendingOfflineActions());
+      addToast(
+        'warning',
+        'Rapport conservé localement',
+        'Impossible de joindre le serveur : le PV sera synchronisé ultérieurement.'
+      );
+    }
   };
 
-  // Users CRUD
-  const handleAddUser = (newUser: UserProfile) => {
+  // Users CRUD (synchronisé avec le backend ; fallback local si hors-ligne)
+  const handleAddUser = async (newUser: UserProfile) => {
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        const serverUser = await api.createUser(newUser);
+        setUsers([...users, serverUser]);
+        logAuditAction('Création Acteur', `Utilisateur ${serverUser.name}`, `Rôle ${serverUser.role}`);
+        return;
+      } catch {
+        // fallthrough : conservation locale
+      }
+    }
     setUsers([...users, newUser]);
     logAuditAction('Création Acteur', `Utilisateur ${newUser.name}`, `Rôle ${newUser.role}`);
+    if (isOnline && !isSimulatedOffline) {
+      addToast(
+        'warning',
+        'Synchronisation différée',
+        `Le compte ${newUser.name} sera transmis au serveur plus tard.`
+      );
+    }
   };
 
-  const handleUpdateUser = (updatedUser: UserProfile) => {
+  const handleUpdateUser = async (updatedUser: UserProfile) => {
     setUsers(users.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
     if (currentUser.id === updatedUser.id) {
       setCurrentUser(updatedUser);
     }
     logAuditAction('Modification Acteur', `Utilisateur ${updatedUser.name}`, `Mis à jour permissions/infos`);
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        const serverUser = await api.updateUser(updatedUser.id, updatedUser);
+        setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? serverUser : u)));
+      } catch {
+        addToast(
+          'warning',
+          'Synchronisation différée',
+          `Les modifications de ${updatedUser.name} seront transmises plus tard.`
+        );
+      }
+    }
   };
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     const target = users.find((u) => u.id === userId);
     setUsers(users.filter((u) => u.id !== userId));
     logAuditAction('Suppression Acteur', `ID ${userId}`, target ? target.name : 'Utilisateur supprimé');
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        await api.deleteUser(userId);
+      } catch {
+        addToast(
+          'warning',
+          'Synchronisation différée',
+          `La suppression de ${target?.name || "l'utilisateur"} sera transmise plus tard.`
+        );
+      }
+    }
   };
 
-  // Equipment CRUD
-  const handleAddEquipment = (newEq: Equipment) => {
+  // Equipment CRUD (synchronisé avec le backend ; fallback local si hors-ligne)
+  const handleAddEquipment = async (newEq: Equipment) => {
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        const serverEq = await api.createEquipment(newEq);
+        setEquipmentList([serverEq, ...equipmentList]);
+        logAuditAction('Ajout Équipement', `Code ${serverEq.code}`, `Modèle ${serverEq.model}`);
+        return;
+      } catch {
+        // fallthrough : conservation locale
+      }
+    }
     setEquipmentList([newEq, ...equipmentList]);
     logAuditAction('Ajout Équipement', `Code ${newEq.code}`, `Modèle ${newEq.model}`);
+    if (isOnline && !isSimulatedOffline) {
+      addToast(
+        'warning',
+        'Synchronisation différée',
+        `L'équipement ${newEq.code} sera transmis au serveur plus tard.`
+      );
+    }
   };
 
-  const handleUpdateEquipment = (updatedEq: Equipment) => {
+  const handleUpdateEquipment = async (updatedEq: Equipment) => {
     setEquipmentList(equipmentList.map((e) => (e.id === updatedEq.id ? updatedEq : e)));
     logAuditAction('Modification Équipement', `Code ${updatedEq.code}`, `Mis à jour statut/infos`);
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        const serverEq = await api.updateEquipment(updatedEq.id, updatedEq);
+        setEquipmentList((prev) => prev.map((e) => (e.id === updatedEq.id ? serverEq : e)));
+      } catch {
+        addToast(
+          'warning',
+          'Synchronisation différée',
+          `Les modifications de ${updatedEq.code} seront transmises plus tard.`
+        );
+      }
+    }
   };
 
-  const handleDeleteEquipment = (eqId: string) => {
+  const handleDeleteEquipment = async (eqId: string) => {
     const target = equipmentList.find((e) => e.id === eqId);
     setEquipmentList(equipmentList.filter((e) => e.id !== eqId));
     logAuditAction('Suppression Équipement', `ID ${eqId}`, target ? target.name : 'Équipement supprimé');
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        await api.deleteEquipment(eqId);
+      } catch {
+        addToast(
+          'warning',
+          'Synchronisation différée',
+          `La suppression de ${target?.name || "l'équipement"} sera transmise plus tard.`
+        );
+      }
+    }
   };
+
+  // Knowledge article creation (server-first, fallback local)
+  const handleAddKnowledgeArticle = async (newArt: KnowledgeArticle) => {
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        const serverArt = await api.createKnowledge(newArt);
+        setKnowledgeArticles([serverArt, ...knowledgeArticles]);
+        return;
+      } catch {
+        // fallthrough : conservation locale
+      }
+    }
+    setKnowledgeArticles([newArt, ...knowledgeArticles]);
+    if (isOnline && !isSimulatedOffline) {
+      addToast(
+        'warning',
+        'Synchronisation différée',
+        `La fiche « ${newArt.title} » sera transmise au serveur plus tard.`
+      );
+    }
+  };
+
+  // --- Authentification ---
+  // Connexion réussie : l'utilisateur devient la session active et les
+  // données réelles du backend (SQLite) sont chargées (loader plein écran).
+  const handleLogin = async (user: UserProfile) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    setIsLoading(true);
+    try {
+      const data = await loadAllData();
+      setUsers(data.users);
+      setEquipmentList(data.equipment);
+      setTickets(data.tickets);
+      setKnowledgeArticles(data.knowledge);
+      setAuditLogs(data.audit);
+      if (data.facilities.length > 0) setFacilities(data.facilities);
+      addToast(
+        'success',
+        'Connexion Réussie',
+        `Bienvenue ${user.name}. ${data.equipment.length} équipements et ${data.tickets.length} tickets chargés depuis le serveur.`
+      );
+    } catch {
+      addToast(
+        'warning',
+        'Chargement partiel',
+        'Impossible de charger toutes les données depuis le serveur.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Changement d'onglet : feedback visuel immédiat (barre de progression)
+  const handleSelectTab = (tab: string) => {
+    setActiveTab(tab);
+    setTabLoading(true);
+    window.setTimeout(() => setTabLoading(false), 400);
+  };
+
+  // Mode démonstration : serveur injoignable, on entre avec les données locales
+  const handleDemoMode = () => {
+    const admin = MOCK_USERS.find((u) => u.role === 'admin') || MOCK_USERS[0];
+    setCurrentUser(admin);
+    setIsAuthenticated(true);
+    setUsers(getCachedData('biomed_users_v1', MOCK_USERS));
+    setEquipmentList(getCachedData(STORAGE_KEYS.EQUIPMENT, MOCK_EQUIPMENT));
+    setTickets(getCachedData(STORAGE_KEYS.TICKETS, MOCK_TICKETS));
+    setKnowledgeArticles(getCachedData(STORAGE_KEYS.KNOWLEDGE, MOCK_KNOWLEDGE_BASE));
+    setAuditLogs(getCachedData(STORAGE_KEYS.AUDIT, MOCK_AUDIT_LOGS));
+    addToast(
+      'info',
+      'Mode Démonstration',
+      'Serveur injoignable : utilisation des données locales de démonstration.'
+    );
+  };
+
+  // Déconnexion : retour à l'écran de connexion
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      // session déjà expirée ou serveur injoignable : on déconnecte quand même
+    }
+    setIsAuthenticated(false);
+    setCurrentUser(MOCK_USERS.find((u) => u.role === 'admin') || MOCK_USERS[0]);
+  };
 
   const pendingTicketsCount = tickets.filter((t) => t.status !== 'validated' && t.status !== 'resolved').length;
 
+  // Gate de connexion : l'application n'est accessible qu'après authentification
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={handleLogin} onDemoMode={handleDemoMode} />;
+  }
+
+  // Chargement initial des données après connexion
+  if (isLoading) {
+    return <AppLoader />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
+      {/* Barre de progression globale (chargement initial / changement d'onglet) */}
+      <TopProgressBar visible={isLoading || tabLoading} />
+
       {/* Toast Notifications Overlay */}
       <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
 
@@ -468,13 +724,12 @@ export default function App() {
         isSimulatedOffline={isSimulatedOffline}
       />
 
-      {/* Header with App Title, Role Switcher, Tabs */}
+      {/* Header with App Title, Active Account, Tabs */}
       <Header
         currentUser={currentUser}
-        users={users}
-        onSelectUser={setCurrentUser}
+        onLogout={handleLogout}
         selectedFacility={selectedFacility}
-        facilities={MOCK_FACILITIES}
+        facilities={facilities}
         onSelectFacility={setSelectedFacility}
         onOpenReportModal={() => setIsReportModalOpen(true)}
         onToggleAiDrawer={() => setIsAiDrawerOpen(!isAiDrawerOpen)}
@@ -483,7 +738,7 @@ export default function App() {
           setIsVideoConferenceOpen(true);
         }}
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={handleSelectTab}
         pendingTicketsCount={pendingTicketsCount}
         isOnline={isOnline}
         isSimulatedOffline={isSimulatedOffline}
@@ -494,6 +749,8 @@ export default function App() {
 
       {/* Main View Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Chaque onglet est chargé à la demande : skeleton pendant le chargement */}
+        <Suspense fallback={<TabSkeleton />}>
         {/* TAB 1: Equipment Fleet */}
         {activeTab === 'equipment' && (
           <EquipmentList
@@ -541,7 +798,7 @@ export default function App() {
         {activeTab === 'knowledge' && (
           <KnowledgeBase
             articles={knowledgeArticles}
-            onAddArticle={(newArt) => setKnowledgeArticles([newArt, ...knowledgeArticles])}
+            onAddArticle={handleAddKnowledgeArticle}
           />
         )}
 
@@ -558,7 +815,7 @@ export default function App() {
         {activeTab === 'alerts' && (
           <CriticalAlertsHistory
             tickets={tickets}
-            facilities={MOCK_FACILITIES}
+            facilities={facilities}
             selectedFacility={selectedFacility}
             onSelectFacility={setSelectedFacility}
             onOpenDiagnostic={(tkt) => {
@@ -586,6 +843,7 @@ export default function App() {
             onDeleteEquipment={handleDeleteEquipment}
           />
         )}
+        </Suspense>
       </main>
 
       {/* Modals & Slide-Out Drawers */}

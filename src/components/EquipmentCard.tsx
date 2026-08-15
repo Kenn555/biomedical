@@ -49,21 +49,29 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({
       <div>
         {/* Card Header */}
         <div className="flex items-start justify-between gap-2 mb-3">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
-                {equipment.code}
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500">
-                {getCategoryLabel(equipment.category)}
-              </span>
+          <div className="flex items-start space-x-3 min-w-0">
+            {/* Photo / Avatar de l'équipement */}
+            <EquipmentThumb
+              equipment={equipment}
+              className="w-14 h-14 rounded-xl shrink-0"
+              iconClassName="w-6 h-6 text-slate-400"
+            />
+            <div className="min-w-0">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                  {equipment.code}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {getCategoryLabel(equipment.category)}
+                </span>
+              </div>
+              <h3 className="text-sm font-bold text-slate-900 mt-1.5 group-hover:text-emerald-600 transition-colors truncate">
+                {equipment.name}
+              </h3>
+              <p className="text-xs text-slate-500 font-medium truncate">
+                {equipment.brand} • {equipment.model}
+              </p>
             </div>
-            <h3 className="text-sm font-bold text-slate-900 mt-1.5 group-hover:text-emerald-600 transition-colors">
-              {equipment.name}
-            </h3>
-            <p className="text-xs text-slate-500 font-medium">
-              {equipment.brand} • {equipment.model}
-            </p>
           </div>
 
           <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${statusBadge.bg} shrink-0`}>
@@ -188,6 +196,37 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({
           <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
         </button>
       </div>
+    </div>
+  );
+};
+
+/**
+ * Vignette photo d'un équipement avec repli élégant (icône) si l'image
+ * est absente ou inaccessible.
+ */
+export const EquipmentThumb: React.FC<{
+  equipment: Equipment;
+  className?: string;
+  iconClassName?: string;
+}> = ({ equipment, className = '', iconClassName = 'w-6 h-6 text-slate-400' }) => {
+  const [imgError, setImgError] = React.useState(false);
+  const showImg = !!equipment.imageUrl && !imgError;
+  return (
+    <div
+      className={`overflow-hidden bg-slate-100 border border-slate-200/80 flex items-center justify-center ${className}`}
+      title={equipment.imageUrl ? equipment.name : 'Pas de photo disponible'}
+    >
+      {showImg ? (
+        <img
+          src={equipment.imageUrl}
+          alt={equipment.name}
+          loading="lazy"
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <Activity className={iconClassName} />
+      )}
     </div>
   );
 };

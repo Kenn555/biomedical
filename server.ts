@@ -1,4 +1,5 @@
 import express from 'express';
+import net from 'node:net';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
@@ -26,8 +27,12 @@ async function startServer() {
 
   // Vite middleware setup
   if (process.env.NODE_ENV !== 'production') {
+    // Port HMR : surcharge possible via HMR_PORT (utilisé par les tests E2E pour
+    // éviter toute collision), sinon port libre si le défaut (24678) est occupé.
+    const hmrPort =
+      (process.env.HMR_PORT && Number(process.env.HMR_PORT)) || (await getFreePort(24678));
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: { port: hmrPort } },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -41,6 +46,32 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Port HMR de Vite : si le port par défaut (24678) est occupé par une autre
+// instance, on en choisit un libre pour éviter les erreurs WebSocket.
+// ---------------------------------------------------------------------------
+function isPortFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once('error', () => resolve(false));
+    srv.once('listening', () => srv.close(() => resolve(true)));
+    srv.listen(port, '0.0.0.0');
+  });
+}
+
+async function getFreePort(preferred: number): Promise<number> {
+  if (await isPortFree(preferred)) return preferred;
+  // Prochain port libre garanti (bind sur 0.0.0.0 pour couvrir toutes les interfaces,
+  // y compris les processus qui occupent uniquement IPv4/dual-stack)
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.listen(0, '0.0.0.0', () => {
+      const addr = srv.address() as net.AddressInfo;
+      srv.close(() => resolve(addr.port));
+    });
   });
 }
 

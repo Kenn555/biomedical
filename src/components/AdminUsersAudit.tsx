@@ -9,6 +9,8 @@ import {
   Key,
   Search,
   CheckCircle2,
+  Check,
+  Image,
   X,
   Save,
   Wrench,
@@ -19,6 +21,7 @@ import {
   Filter
 } from 'lucide-react';
 import { getRoleLabel } from './Header';
+import { ImageUploadButton } from './ImageUploadButton';
 
 interface AdminUsersAuditProps {
   users: UserProfile[];
@@ -63,6 +66,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   const [userEmail, setUserEmail] = useState('');
   const [userPhone, setUserPhone] = useState('+261 34 00 000 00');
   const [userSpecialty, setUserSpecialty] = useState('Biomédical & Maintenance');
+  const [userAvatar, setUserAvatar] = useState('');
   const [userPermissions, setUserPermissions] = useState({
     canReportIncident: true,
     canRunDiagnostic: true,
@@ -70,6 +74,19 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     canManageEquipment: false,
     canManageUsers: false,
   });
+
+  // Avatars de démonstration proposés à la création d'un acteur
+  const PRESET_AVATARS = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+  ];
+  const DEFAULT_AVATAR = PRESET_AVATARS[0];
 
   // Equipment Modal State
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
@@ -85,7 +102,18 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   const [eqFacility, setEqFacility] = useState('Hôpital de District de Manakara');
   const [eqDepartment, setEqDepartment] = useState('Unité Télémédecine');
   const [eqStatus, setEqStatus] = useState<EquipmentStatus>('operational');
+  const [eqImageUrl, setEqImageUrl] = useState('');
   const [eqNotes, setEqNotes] = useState('');
+
+  // Photos de démonstration proposées pour un équipement (par catégorie)
+  const PRESET_EQUIPMENT_IMAGES = [
+    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=300&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=300&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1579154204601-01588f351e67?w=300&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1581056771107-24ca5f033842?w=300&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=300&auto=format&fit=crop&q=80',
+  ];
 
   // Open User Modal for Create/Edit
   const handleOpenUserModal = (user?: UserProfile) => {
@@ -98,6 +126,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
       setUserEmail(user.email);
       setUserPhone(user.phone || '');
       setUserSpecialty(user.specialty || '');
+      setUserAvatar(user.avatar || '');
       setUserPermissions({
         canReportIncident: user.permissions?.canReportIncident ?? true,
         canRunDiagnostic: user.permissions?.canRunDiagnostic ?? true,
@@ -114,6 +143,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
       setUserEmail('nouvel.acteur@sante.gov.mg');
       setUserPhone('+261 34 12 345 67');
       setUserSpecialty('Maintenance & Équipements');
+      setUserAvatar('');
       setUserPermissions({
         canReportIncident: true,
         canRunDiagnostic: true,
@@ -142,7 +172,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
       email: userEmail,
       phone: userPhone,
       specialty: userSpecialty,
-      avatar: editingUser ? editingUser.avatar : `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 1000)}?w=150`,
+      avatar: userAvatar.trim() || DEFAULT_AVATAR,
       permissions: userPermissions,
     };
 
@@ -178,6 +208,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
       setEqFacility(eq.facility);
       setEqDepartment(eq.department);
       setEqStatus(eq.status);
+      setEqImageUrl(eq.imageUrl || '');
       setEqNotes(eq.notes || '');
     } else {
       setEditingEq(null);
@@ -190,6 +221,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
       setEqFacility('Hôpital de District de Manakara');
       setEqDepartment('Unité Télémédecine');
       setEqStatus('operational');
+      setEqImageUrl('');
       setEqNotes('Enregistré dans le parc biomédical.');
     }
     setIsEqModalOpen(true);
@@ -215,6 +247,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
         facility: eqFacility,
         department: eqDepartment,
         status: eqStatus,
+        imageUrl: eqImageUrl.trim() || undefined,
         notes: eqNotes,
       };
       if (onUpdateEquipment) onUpdateEquipment(updatedEq);
@@ -231,6 +264,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
         facility: eqFacility,
         department: eqDepartment,
         status: eqStatus,
+        imageUrl: eqImageUrl.trim() || undefined,
         installationDate: new Date().toISOString().split('T')[0],
         lastMaintenanceDate: new Date().toISOString().split('T')[0],
         nextPreventiveMaintenance: new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0],
@@ -425,7 +459,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
               return (
                 <div key={u.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex flex-col justify-between space-y-3">
                   <div className="flex items-start space-x-3">
-                    <img src={u.avatar} alt={u.name} className="w-12 h-12 rounded-full object-cover border-2 border-slate-300 shrink-0" />
+                    <img src={u.avatar} alt={u.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover border-2 border-slate-300 shrink-0" />
                     <div className="flex-1 space-y-1 min-w-0">
                       <div className="flex items-center justify-between flex-wrap gap-1">
                         <h4 className="font-bold text-slate-900 text-sm truncate">{u.name}</h4>
@@ -520,7 +554,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                   return (
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-3 font-bold text-slate-900 flex items-center space-x-2">
-                        <img src={u.avatar} alt={u.name} className="w-7 h-7 rounded-full object-cover border border-slate-300 shrink-0" />
+                        <img src={u.avatar} alt={u.name} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-300 shrink-0" />
                         <div>
                           <div>{u.name}</div>
                           <div className="text-[10px] text-slate-400 font-normal">{getRoleLabel(u.role)} • {u.facility}</div>
@@ -827,6 +861,72 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 </div>
               </div>
 
+              {/* Photo / Avatar de l'acteur */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-3">
+                <label className="font-bold text-slate-900 block text-xs">Photo / Avatar de l'Acteur</label>
+                <div className="flex items-center space-x-3">
+                  <div className="w-14 h-14 rounded-full overflow-hidden bg-slate-200 border-2 border-slate-300 shrink-0 flex items-center justify-center">
+                    {userAvatar.trim() ? (
+                      <img
+                        src={userAvatar.trim()}
+                        alt="Aperçu avatar"
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <Image className="w-6 h-6 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <label className="font-bold text-slate-900 block text-[11px]">URL de l'image (photo de profil)</label>
+                    <input
+                      type="url"
+                      value={userAvatar}
+                      onChange={(e) => setUserAvatar(e.target.value)}
+                      placeholder="https://.../photo.jpg"
+                      className="w-full bg-white text-slate-900 placeholder-slate-400 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all"
+                    />
+                    <div className="flex items-center space-x-2">
+                      <ImageUploadButton
+                        onImage={(dataUrl) => setUserAvatar(dataUrl)}
+                        maxDim={320}
+                        label="Importer depuis l'ordinateur"
+                      />
+                      <span className="text-[10px] text-slate-400 font-medium">PNG / JPG — redimensionnée automatiquement</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1.5">Ou choisir parmi les avatars</p>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                    {PRESET_AVATARS.map((url) => (
+                      <button
+                        key={url}
+                        type="button"
+                        onClick={() => setUserAvatar(url)}
+                        title="Utiliser cet avatar"
+                        className={`relative w-9 h-9 rounded-full overflow-hidden border-2 transition-all cursor-pointer ${
+                          userAvatar === url
+                            ? 'border-emerald-600 ring-2 ring-emerald-500/40'
+                            : 'border-slate-300 hover:border-slate-400'
+                        }`}
+                      >
+                        <img src={url} alt="Avatar" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                        {userAvatar === url && (
+                          <span className="absolute inset-0 bg-emerald-600/30 flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Permissions Checkboxes */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2">
                 <label className="font-bold text-slate-900 block text-xs">Droits et Permissions Accordés</label>
@@ -1035,6 +1135,62 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                   <option value="in_maintenance">En Maintenance Preventive</option>
                   <option value="critical">CRITIQUE (Arrêt Réseau)</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-900 block mb-1">
+                  <span className="flex items-center space-x-1.5">
+                    <Image className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Photo / Image de l'Équipement</span>
+                  </span>
+                </label>
+                <div className="flex items-center space-x-3">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/80 flex items-center justify-center shrink-0">
+                    {eqImageUrl.trim() ? (
+                      <img
+                        src={eqImageUrl.trim()}
+                        alt="Aperçu équipement"
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                      />
+                    ) : (
+                      <Image className="w-6 h-6 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="url"
+                      placeholder="https://… (photo de l'appareil)"
+                      value={eqImageUrl}
+                      onChange={(e) => setEqImageUrl(e.target.value)}
+                      className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                    />
+                    <div className="flex items-center space-x-2">
+                      <ImageUploadButton
+                        onImage={(dataUrl) => setEqImageUrl(dataUrl)}
+                        maxDim={480}
+                        label="Importer depuis l'ordinateur"
+                      />
+                      <span className="text-[10px] text-slate-400 font-medium">PNG / JPG — redimensionnée automatiquement</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-1.5 mt-2">
+                  <span className="text-[10px] font-semibold text-slate-500 mr-1">Suggestions :</span>
+                  {PRESET_EQUIPMENT_IMAGES.map((img) => (
+                    <button
+                      key={img}
+                      type="button"
+                      onClick={() => setEqImageUrl(img)}
+                      className={`w-8 h-8 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                        eqImageUrl === img ? 'border-emerald-500 ring-2 ring-emerald-500/30' : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                      title="Utiliser cette photo"
+                    >
+                      <img src={img} alt="Photo suggérée" className="w-full h-full object-cover" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>

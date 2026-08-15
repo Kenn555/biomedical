@@ -1,0 +1,45 @@
+# Render Blueprint — BioMed
+# Déploiement du serveur Express (API + SPA Vite) avec base SQLite persistante.
+#
+# Utilisation : connecter le dépôt à Render → "New" → "Blueprint", puis
+# sélectionner ce fichier (render.yaml à la racine du dépôt).
+#
+# Notes importantes :
+# - L'app utilise `node:sqlite` : il faut Node >= 23.4 (NODE_VERSION ci-dessous).
+# - La base SQLite est créée et peuplée automatiquement au premier démarrage
+#   (seedDatabase() appelé au chargement de server/routes.ts). Aucun hook
+#   initialDeployHook / preDeployCommand nécessaire.
+# - Le disque persistant est indispensable : sans lui, data/biomed.db serait
+#   perdu à chaque redéploiement. Un service avec disque est limité à 1 instance.
+
+previews:
+  generation: automatic
+
+services:
+  - type: web
+    name: biomed
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/server.cjs
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      # Répertoire de la base SQLite → monté sur le disque persistant
+      # (voir "disk" ci-dessous). Le serveur y écrit data/biomed.db.
+      - key: DATA_DIR
+        value: /var/data
+      # Mot de passe par défaut utilisé pour le seed de la base au premier
+      # démarrage (défaut code : "biomed123"). sync: false → à définir dans le
+      # dashboard Render ; laisser vide pour utiliser la valeur par défaut.
+      - key: DEFAULT_PASSWORD
+        sync: false
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

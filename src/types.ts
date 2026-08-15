@@ -65,6 +65,7 @@ export interface Equipment {
   lastMaintenanceDate: string;
   nextPreventiveMaintenance: string;
   telemetry: TelemetryData;
+  imageUrl?: string;          // Photo / image de l'équipement
   manualUrl?: string;
   schematicUrl?: string;
   notes?: string;

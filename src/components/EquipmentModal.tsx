@@ -16,7 +16,7 @@ import {
   Download,
   Video
 } from 'lucide-react';
-import { getCategoryLabel } from './EquipmentCard';
+import { getCategoryLabel, EquipmentThumb } from './EquipmentCard';
 
 interface EquipmentModalProps {
   equipment: Equipment | null;
@@ -40,13 +40,21 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
       <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-2xl shadow-xl overflow-hidden my-8">
         {/* Modal Header */}
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <span className="text-xs font-mono font-bold bg-slate-900 text-emerald-400 px-2.5 py-1 rounded-lg">
-              {equipment.code}
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">{equipment.name}</h2>
-              <p className="text-xs text-slate-500 font-medium">
+          <div className="flex items-center space-x-3 min-w-0">
+            {/* Photo / Avatar de l'équipement */}
+            <EquipmentThumb
+              equipment={equipment}
+              className="w-16 h-16 rounded-xl shrink-0"
+              iconClassName="w-7 h-7 text-slate-400"
+            />
+            <div className="min-w-0">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono font-bold bg-slate-900 text-emerald-400 px-2.5 py-1 rounded-lg">
+                  {equipment.code}
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 mt-1 truncate">{equipment.name}</h2>
+              <p className="text-xs text-slate-500 font-medium truncate">
                 {equipment.brand} • {equipment.model} • SN: {equipment.serialNumber}
               </p>
             </div>

@@ -278,6 +278,15 @@ apiRouter.delete('/tickets/:id', requireAuth, requireRole('admin'), (req, res) =
   ok(res, {});
 });
 
+apiRouter.put('/tickets/:id', requireAuth, requireRole('admin', 'engineer'), (req, res) => {
+  const existing = getById('tickets', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Ticket introuvable.' });
+  const { password_hash: _pw, id: _id, history: _hist, ...clean } = req.body || {};
+  const updated = updateRow('tickets', req.params.id, clean);
+  logAudit(req, 'Modification Ticket', `Ticket ${existing.code}`, 'Mise à jour des informations du ticket');
+  ok(res, { ticket: updated });
+});
+
 // ---------------------------------------------------------------------------
 // Knowledge base (write: admin or engineer)
 // ---------------------------------------------------------------------------
@@ -349,6 +358,23 @@ apiRouter.post('/reports', requireAuth, (req, res) => {
   ok(res, { report });
 });
 
+apiRouter.put('/reports/:id', requireAuth, requireRole('admin'), (req, res) => {
+  const existing = getById('reports', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Rapport introuvable.' });
+  const { id: _id, ...clean } = req.body || {};
+  const report = updateRow('reports', req.params.id, clean);
+  logAudit(req, 'Modification Rapport Intervention', `Rapport ${req.params.id}`, 'Mise à jour du PV d\'intervention');
+  ok(res, { report });
+});
+
+apiRouter.delete('/reports/:id', requireAuth, requireRole('admin'), (req, res) => {
+  const existing = getById('reports', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Rapport introuvable.' });
+  deleteRow('reports', req.params.id);
+  logAudit(req, 'Suppression Rapport Intervention', `Rapport ${req.params.id}`, 'PV d\'intervention supprimé');
+  ok(res, {});
+});
+
 // ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------
@@ -360,6 +386,13 @@ apiRouter.post('/audit', requireAuth, (req, res) => {
   const { action, target, details } = req.body || {};
   if (!action) return res.status(400).json({ error: 'Action requise.' });
   logAudit(req, action, target || 'N/A', details || '');
+  ok(res, {});
+});
+
+apiRouter.delete('/audit/:id', requireAuth, requireRole('admin'), (req, res) => {
+  const existing = getById('audit', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Entrée d\'audit introuvable.' });
+  deleteRow('audit', req.params.id);
   ok(res, {});
 });
 
