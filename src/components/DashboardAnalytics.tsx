@@ -204,7 +204,7 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
           </div>
           <div className="flex items-baseline space-x-2">
             <span className="text-3xl font-extrabold text-amber-600">3.8 hrs</span>
-            <span className="text-xs text-emerald-600 font-bold">-1.2h via Télé-IA</span>
+            <span className="text-xs text-emerald-600 font-bold">-1.2h via Télé-diagnostic</span>
           </div>
           <p className="text-[11px] text-slate-500 font-medium">Réduction majeure grâce aux diagnostics à distance</p>
         </div>

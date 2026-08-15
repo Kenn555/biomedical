@@ -76,8 +76,8 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
   const [drawColor, setDrawColor] = useState('#f43f5e'); // Rose accent for annotation
 
   const roomName = ticket
-    ? `Biomedical-TeleMed-${ticket.code}`
-    : `Biomedical-TeleMed-Room-${equipment ? equipment.code : 'General'}`;
+    ? `BioMed-${ticket.code}`
+    : `BioMed-Room-${equipment ? equipment.code : 'General'}`;
 
   const jitsiUrl = `https://meet.jit.si/${roomName}#config.prejoinPageEnabled=false&interfaceConfig.TOOLBAR_BUTTONS=['microphone','camera','desktop','fullscreen','hangup']`;
 
@@ -253,19 +253,19 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
     setNewMessage('');
   };
 
-  // Trigger Live Gemini AI Assistance
+  // Trigger Live Technical Assistance
   const handleAiLiveAssist = () => {
     setIsGeneratingAi(true);
     setTimeout(() => {
       setIsGeneratingAi(false);
       const advice = ticket
-        ? `Recommandation Gemini AI pour ${ticket.equipmentName}: Vérifiez d'abord la tension d'entrée du fusible principal (${ticket.errorCode || 'Alimentation'}). Assurez-vous que le câble de terre est continuel.`
-        : `Gemini AI: Pour ce modèle, assurez-vous de réinitialiser le contrôleur via le menu technicien en maintenant le bouton Power pendant 10s.`;
+        ? `Recommandation technique pour ${ticket.equipmentName}: Vérifiez d'abord la tension d'entrée du fusible principal (${ticket.errorCode || 'Alimentation'}). Assurez-vous que le câble de terre est continuel.`
+        : `Pour ce modèle, assurez-vous de réinitialiser le contrôleur via le menu technicien en maintenant le bouton Power pendant 10s.`;
       setAiDiagnosticAdvice(advice);
       setChatMessages((prev) => [
         ...prev,
         {
-          sender: 'Gemini AI Assistant',
+          sender: 'Assistant Technique',
           time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
           text: advice,
           isAi: true,
@@ -283,7 +283,7 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-white">
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 gap-3">
@@ -348,7 +348,7 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
         </div>
 
         {/* Modal Main Content */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-y-auto lg:overflow-hidden">
           {/* Main Video View Canvas Container (col-8 on desktop) */}
           <div className="lg:col-span-8 bg-slate-950 p-4 flex flex-col justify-between relative min-h-[380px] lg:min-h-[500px]">
             {/* Permission Warning Banner */}
@@ -549,7 +549,7 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
               <div className="flex items-center justify-between">
                 <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider flex items-center space-x-1.5">
                   <MessageSquare className="w-4 h-4 text-emerald-400" />
-                  <span>Messagerie & IA Live</span>
+                  <span>Messagerie & Aide en Direct</span>
                 </h4>
 
                 <button
@@ -561,14 +561,14 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
                 </button>
               </div>
 
-              {/* Gemini AI Live Diagnostic Trigger Button */}
+              {/* Live Technical Assistance Trigger Button */}
               <button
                 onClick={handleAiLiveAssist}
                 disabled={isGeneratingAi}
                 className="w-full bg-slate-800 hover:bg-slate-700/80 text-emerald-400 font-bold text-xs py-2.5 px-3 rounded-xl border border-emerald-500/30 flex items-center justify-center space-x-2 transition-all cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-emerald-400 animate-spin" style={{ animationDuration: '3s' }} />
-                <span>{isGeneratingAi ? 'Analyse Gemini AI...' : 'Demander l\'avis Gemini AI'}</span>
+                <span>{isGeneratingAi ? 'Analyse en cours...' : 'Demander un avis technique'}</span>
               </button>
             </div>
 

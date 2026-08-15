@@ -13,7 +13,7 @@ export const RoleContextBar: React.FC<RoleContextBarProps> = ({ currentUser }) =
         return {
           icon: Wrench,
           badge: 'Technicien Biomédical',
-          tasks: 'Consulter les pannes, exécuter les télé-diagnostics avec IA, planifier les pièces & signer les rapports d\'intervention.'
+          tasks: 'Consulter les pannes, exécuter les télé-diagnostics, planifier les pièces & signer les rapports d\'intervention.'
         };
       case 'engineer':
         return {

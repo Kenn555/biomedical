@@ -697,7 +697,7 @@ export const CriticalAlertsHistory: React.FC<CriticalAlertsHistoryProps> = ({
                             className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold text-[11px] rounded-lg cursor-pointer transition-colors flex items-center space-x-1"
                           >
                             <Zap className="w-3 h-3" />
-                            <span>Diag IA</span>
+                            <span>Diagnostic</span>
                           </button>
                         )}
                         {onOpenReport && (

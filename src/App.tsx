@@ -653,9 +653,9 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 shadow-xs mt-auto">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>© 2026 BioMed Telemed — Plateforme Collaborative de Maintenance Biomédicale</p>
+          <p>© 2026 BioMed — Plateforme Collaborative de Maintenance Biomédicale</p>
           <p className="text-[11px] text-slate-400 font-medium">
-            Conforme HDS, ISO 13485 & NF EN 60601-1 • Intégration IA Gemini 3.6 Flash
+            Conforme HDS, ISO 13485 & NF EN 60601-1
           </p>
         </div>
       </footer>

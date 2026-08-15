@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col">
               <div className="flex items-center space-x-2 flex-wrap sm:flex-nowrap">
                 <span className="font-bold text-base sm:text-lg tracking-tight text-slate-900 whitespace-nowrap">
-                  BioMed Telemed
+                  BioMed
                 </span>
                 <span className="hidden xs:inline-block px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full whitespace-nowrap">
                   Plateforme Collaborative

@@ -341,7 +341,7 @@ export const TicketList: React.FC<TicketListProps> = ({
                 {isExpanded && (
                   <div className="border-t border-slate-200/80 p-4 sm:p-5 bg-slate-50/50 space-y-4">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                      {/* Left: Full Details & AI Summary */}
+                      {/* Left: Full Details & Diagnostic Summary */}
                       <div className="lg:col-span-2 space-y-3">
                         {/* Reported by & Full Timestamp */}
                         <div className="text-xs text-slate-600 font-medium bg-white p-2.5 rounded-xl border border-slate-200/80">

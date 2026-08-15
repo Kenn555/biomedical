@@ -36,7 +36,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
   if (!equipment) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-start sm:items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-2xl shadow-xl overflow-hidden my-8">
         {/* Modal Header */}
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -129,7 +129,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
                     className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer shadow-xs"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Diagnostiquer par IA</span>
+                    <span>Lancer un Diagnostic</span>
                   </button>
                 </div>
                 <p className="text-slate-700 mt-1">{equipment.telemetry.errorDescription}</p>
@@ -233,7 +233,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
             className="bg-slate-900 hover:bg-slate-800 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
           >
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>Ouvrir la Suite de Diagnostic IA</span>
+            <span>Ouvrir la Suite de Diagnostic</span>
           </button>
 
           <button

@@ -736,7 +736,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
 
       {/* MODAL USER CREATE / EDIT */}
       {isUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 my-8">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-slate-900">
@@ -763,7 +763,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-900 block mb-1">Rôle Système *</label>
                   <select
@@ -804,7 +804,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-900 block mb-1">Email *</label>
                   <input
@@ -906,7 +906,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
 
       {/* MODAL EQUIPMENT CREATE / EDIT */}
       {isEqModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 my-8">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-slate-900">
@@ -921,7 +921,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
             </div>
 
             <form onSubmit={handleSaveEquipment} className="space-y-3.5 text-xs font-medium text-slate-700">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-900 block mb-1">Code Interne *</label>
                   <input
@@ -962,7 +962,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="font-bold text-slate-900 block mb-1">Marque *</label>
                   <input
@@ -1000,7 +1000,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-900 block mb-1">Établissement</label>
                   <input

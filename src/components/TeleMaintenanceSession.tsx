@@ -89,7 +89,7 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-start sm:items-center justify-center p-3 overflow-y-auto">
       <div className="bg-slate-900 border border-slate-800 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[90vh]">
         {/* Session Top Header */}
         <div className="bg-slate-950 px-6 py-3 border-b border-slate-800 flex items-center justify-between shrink-0">
@@ -118,13 +118,13 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
         </div>
 
         {/* Main Work Area: Video Canvas + Side Panel */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 overflow-y-auto lg:overflow-hidden">
           {/* Main Interactive Video Feed (2 cols) */}
           <div className="lg:col-span-2 bg-slate-950 p-4 flex flex-col justify-between relative overflow-hidden">
             {/* Interactive Annotations Canvas Area */}
             <div
               onClick={addAnnotationOnCanvas}
-              className="relative flex-1 bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl border border-slate-800 flex items-center justify-center overflow-hidden cursor-crosshair group shadow-inner"
+              className="relative flex-1 min-h-[280px] bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl border border-slate-800 flex items-center justify-center overflow-hidden cursor-crosshair group shadow-inner"
             >
               {videoOff ? (
                 <div className="text-center space-y-2 text-slate-500">
@@ -243,7 +243,7 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
             </div>
 
             {/* Chat Messages Log */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 my-2 text-xs">
+            <div className="h-56 lg:h-auto lg:flex-1 overflow-y-auto space-y-2.5 pr-1 my-2 text-xs">
               {chatMessages.map((msg) => {
                 const isMe = msg.senderId === currentUser.id;
                 return (

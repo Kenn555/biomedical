@@ -71,7 +71,7 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
     }
   };
 
-  // Run AI Auto-Triage via Express endpoint
+  // Run Auto-Triage via Express endpoint
   const handleAiAutoTriage = async () => {
     if (!description && selectedSymptoms.length === 0) {
       alert('Veuillez d\'abord saisir une description ou sélectionner au moins un symptôme.');
@@ -98,7 +98,7 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
         }
       }
     } catch (err) {
-      console.error('Error in AI Auto-triage:', err);
+      console.error('Error in Auto-triage:', err);
     } finally {
       setIsAnalyzingAi(false);
     }
@@ -127,7 +127,7 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-start sm:items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white border border-slate-200 w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden my-8">
         {/* Header */}
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -284,7 +284,7 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
             </button>
           </div>
 
-          {/* 5. Urgency Selection + AI Auto-Triage Trigger */}
+          {/* 5. Urgency Selection + Auto-Triage Trigger */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
             <div className="flex items-center justify-between">
               <label className="font-bold text-slate-900 block">5. Niveau d'Urgence Déclaré</label>

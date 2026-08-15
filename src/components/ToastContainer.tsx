@@ -18,7 +18,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
   if (!toasts || toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-5 right-5 z-50 flex flex-col space-y-3 max-w-sm w-full pointer-events-none">
+    <div className="fixed top-5 left-4 right-4 sm:left-auto sm:right-5 z-50 flex flex-col space-y-3 max-w-sm pointer-events-none">
       {toasts.map((toast) => {
         let bgStyle = 'bg-slate-900 border-slate-700 text-white';
         let icon = <Bell className="w-5 h-5 text-emerald-400 shrink-0" />;

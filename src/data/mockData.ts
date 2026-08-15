@@ -295,7 +295,7 @@ export const MOCK_TICKETS: IncidentTicket[] = [
       role: 'technician'
     },
     errorCode: 'ERR-ECG-04',
-    aiDiagnosticSummary: 'Gemini AI: Dysfonctionnement du câble patient à 12 brins ou problème de masse électrique sur la prise secteur. Vérifier l\'impédance des électrodes V1-V3 et tester avec câble de secours.',
+    aiDiagnosticSummary: 'Dysfonctionnement du câble patient à 12 brins ou problème de masse électrique sur la prise secteur. Vérifier l\'impédance des électrodes V1-V3 et tester avec câble de secours.',
     slaDeadline: '2026-08-11T06:15:00Z',
     slaBreached: false,
     history: [
@@ -307,7 +307,7 @@ export const MOCK_TICKETS: IncidentTicket[] = [
       },
       {
         timestamp: '2026-08-11T02:30:00Z',
-        actor: 'Assistant IA Gemini',
+        actor: 'Assistant Système',
         action: 'Diagnostic automatique généré',
         comment: 'Recommandation étape par étape envoyée au technicien'
       },
@@ -346,7 +346,7 @@ export const MOCK_TICKETS: IncidentTicket[] = [
       role: 'technician'
     },
     errorCode: 'ERR-PERF-12',
-    aiDiagnosticSummary: 'Gemini AI: Dérive du capteur optique de bulles/occlusion ou usure prématurée du mécanisme de poussée de la cassette. Action requise: Passer immédiatement sur pompe de secours et recalibrer.',
+    aiDiagnosticSummary: 'Dérive du capteur optique de bulles/occlusion ou usure prématurée du mécanisme de poussée de la cassette. Action requise: Passer immédiatement sur pompe de secours et recalibrer.',
     slaDeadline: '2026-08-11T04:20:00Z',
     slaBreached: false,
     history: [
@@ -390,7 +390,7 @@ export const MOCK_TICKETS: IncidentTicket[] = [
       role: 'vendor'
     },
     errorCode: 'ERR-SPO2-02',
-    aiDiagnosticSummary: 'Gemini AI: Câble patient endommagé. Remplacement de la rallonge d\'interface Masimo recommandé.',
+    aiDiagnosticSummary: 'Câble patient endommagé. Remplacement de la rallonge d\'interface Masimo recommandé.',
     slaDeadline: '2026-08-12T14:00:00Z',
     slaBreached: false,
     history: [
@@ -434,7 +434,7 @@ export const MOCK_TICKETS: IncidentTicket[] = [
       role: 'engineer'
     },
     errorCode: 'ERR-ECHO-09',
-    aiDiagnosticSummary: 'Gemini AI: Mise en sécurité thermique suite à obstruction des grilles de ventilation. Nettoyage du filtre à air et calibrage du bloc d\'alimentation effectués.',
+    aiDiagnosticSummary: 'Mise en sécurité thermique suite à obstruction des grilles de ventilation. Nettoyage du filtre à air et calibrage du bloc d\'alimentation effectués.',
     slaDeadline: '2026-08-08T10:30:00Z',
     slaBreached: false,
     history: [
@@ -483,7 +483,7 @@ export const MOCK_TICKETS: IncidentTicket[] = [
       role: 'engineer'
     },
     errorCode: 'ERR-TEL-01',
-    aiDiagnosticSummary: 'Gemini AI: Redémarrage du modem VSAT et reconfiguration du routage VPN chiffré.',
+    aiDiagnosticSummary: 'Redémarrage du modem VSAT et reconfiguration du routage VPN chiffré.',
     slaDeadline: '2026-08-05T17:00:00Z',
     slaBreached: false,
     history: [
@@ -526,7 +526,7 @@ export const MOCK_TICKETS: IncidentTicket[] = [
       role: 'technician'
     },
     errorCode: 'ERR-PWR-03',
-    aiDiagnosticSummary: 'Gemini AI: Remplacement du fusible de protection solaire 15A et vérification de la tension batterie.',
+    aiDiagnosticSummary: 'Remplacement du fusible de protection solaire 15A et vérification de la tension batterie.',
     slaDeadline: '2026-08-01T13:15:00Z',
     slaBreached: true,
     history: [
@@ -574,7 +574,7 @@ export const MOCK_TICKETS: IncidentTicket[] = [
       role: 'engineer'
     },
     errorCode: 'ERR-MEM-02',
-    aiDiagnosticSummary: 'Gemini AI: Purge du répertore tampon local et mise à jour du firmware du module de communication.',
+    aiDiagnosticSummary: 'Purge du répertore tampon local et mise à jour du firmware du module de communication.',
     slaDeadline: '2026-07-28T11:00:00Z',
     slaBreached: false,
     history: [
@@ -655,7 +655,7 @@ export const MOCK_AUDIT_LOGS: AuditLog[] = [
     timestamp: '2026-08-11T03:30:12Z',
     actor: 'Jean-Luc Randria',
     role: 'technician',
-    action: 'Lancement Diagnostic IA Gemini',
+    action: 'Lancement Diagnostic Automatique',
     target: 'Équipement EQ-ECG-2024-03',
     ipAddress: '197.220.12.44',
     details: 'Analyse d\'erreur ERR-ECG-04 et vérification télémétrie batterie'
