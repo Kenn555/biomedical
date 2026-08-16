@@ -14,11 +14,11 @@ import {
   Video,
   LogOut
 } from 'lucide-react';
-import { UserProfile, VideoSession } from '../types';
+import { UserProfile, VideoSession, AppNotification } from '../types';
 import { can } from '../lib/permissions';
 import { getRoleLabel } from '../lib/selectOptions';
 export { getRoleLabel } from '../lib/selectOptions';
-import { IncomingCallNotifications } from './IncomingCallNotifications';
+import { NotificationCenter } from './NotificationCenter';
 
 interface HeaderProps {
   currentUser: UserProfile;
@@ -34,10 +34,15 @@ interface HeaderProps {
   pendingTicketsCount: number;
   isOnline?: boolean;
   isSimulatedOffline?: boolean;
-  /** Sessions vidéo où l'utilisateur courant a été invité (cloche d'appels entrants) */
+  /** Sessions vidéo où l'utilisateur courant a été invité (cloche) */
   incomingCallSessions?: VideoSession[];
   onMarkCallViewed?: (sessionId: string) => void;
   onJoinIncomingCall?: (session: VideoSession) => void;
+  /** Notifications de la plateforme (assignation de signalements) */
+  notifications?: AppNotification[];
+  onMarkNotificationRead?: (notificationId: string) => void;
+  onMarkAllNotificationsRead?: () => void;
+  onOpenNotificationTicket?: (ticketId?: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -57,6 +62,10 @@ export const Header: React.FC<HeaderProps> = ({
   incomingCallSessions = [],
   onMarkCallViewed,
   onJoinIncomingCall,
+  notifications = [],
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
+  onOpenNotificationTicket,
 }) => {
   const effectiveOffline = !isOnline || isSimulatedOffline;
 
@@ -139,13 +148,17 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
 
-            {/* Cloche des appels entrants */}
-            {onMarkCallViewed && onJoinIncomingCall && (
-              <IncomingCallNotifications
+            {/* Centre de notifications (assignations + appels entrants) */}
+            {onMarkCallViewed && onJoinIncomingCall && onOpenNotificationTicket && (
+              <NotificationCenter
                 currentUser={currentUser}
                 sessions={incomingCallSessions}
-                onMarkViewed={onMarkCallViewed}
+                notifications={notifications}
+                onMarkCallViewed={onMarkCallViewed}
                 onJoinCall={onJoinIncomingCall}
+                onMarkNotificationRead={onMarkNotificationRead || (() => {})}
+                onMarkAllNotificationsRead={onMarkAllNotificationsRead || (() => {})}
+                onOpenTicket={onOpenNotificationTicket}
               />
             )}
 

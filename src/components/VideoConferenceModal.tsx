@@ -79,12 +79,18 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
     ? `BioMed-${ticket.code}`
     : `BioMed-Room-${equipment ? equipment.code : 'General'}`;
 
-  // Acteurs présents dans la session : l'utilisateur connecté + les acteurs invités
-  // (choisis dans l'écran de préparation — par acteur ou par établissement)
+  // Session enregistrée : l'utilisateur connecté + les acteurs invités
+  // (choisis dans l'écran de préparation — par acteur ou par établissement).
   const sessionParticipants = [
     { id: currentUser.id, name: currentUser.name, role: currentUser.role },
     ...invitedParticipants,
   ];
+
+  // Présence réelle dans l'appel : seul l'utilisateur connecté est physiquement
+  // présent sur ce poste. Les acteurs invités sont notifiés mais ne rejoignent
+  // pas automatiquement la session (pas de signalisation peer-to-peer distante).
+  const presentCount = 1;
+  const invitedCount = invitedParticipants.length;
 
   // Démarre le chrono de session et la caméra WebRTC à l'ouverture
   useEffect(() => {
@@ -574,18 +580,35 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
             <div className="bg-slate-950/80 rounded-2xl border border-slate-800 p-3 space-y-2">
               <h4 className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider flex items-center space-x-1.5">
                 <Users className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Acteurs présents ({sessionParticipants.length})</span>
+                <span>
+                  Acteurs présents ({presentCount})
+                  {invitedCount > 0 && <span className="text-slate-500"> • {invitedCount} invité(s)</span>}
+                </span>
               </h4>
               <div className="space-y-1.5">
-                {sessionParticipants.map((p) => (
+                {/* L'utilisateur connecté : réellement présent dans l'appel */}
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-200 font-semibold truncate">{currentUser.name}</span>
+                  <span className="flex items-center space-x-1.5 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                    <span className="text-emerald-400 font-mono text-[10px] font-bold">Présent</span>
+                  </span>
+                </div>
+                {/* Acteurs invités : notifiés mais pas encore connectés à la session */}
+                {invitedParticipants.map((p) => (
                   <div key={p.id} className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-200 font-semibold truncate">{p.name}</span>
+                    <span className="text-slate-400 font-medium truncate">{p.name}</span>
                     <span className="flex items-center space-x-1.5 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                      <span className="text-emerald-400 font-mono text-[10px] font-bold">Présent</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 inline-block" />
+                      <span className="text-amber-400/90 font-mono text-[10px] font-bold">Invité</span>
                     </span>
                   </div>
                 ))}
+                {invitedCount === 0 && (
+                  <p className="text-[10px] text-slate-500 font-medium pt-0.5">
+                    Aucun acteur invité pour cette session.
+                  </p>
+                )}
               </div>
               <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
                 <span className="text-slate-400 font-semibold">Durée de session</span>

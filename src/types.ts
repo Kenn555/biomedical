@@ -194,6 +194,19 @@ export interface AuditLog {
   details: string;
 }
 
+/** Notification destinée à un acteur (ex. : ticket assigné) */
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: 'ticket_assigned' | 'call_invite';
+  title: string;
+  message: string;
+  ticketId?: string;
+  ticketCode?: string;
+  createdAt: string;   // ISO
+  read: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   senderId: string;

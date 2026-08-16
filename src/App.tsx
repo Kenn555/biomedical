@@ -9,7 +9,8 @@ import {
   UrgencyLevel,
   InterventionReport,
   VideoSession,
-  InvitedParticipant
+  InvitedParticipant,
+  AppNotification
 } from './types';
 import { Header } from './components/Header';
 import { RoleContextBar } from './components/RoleContextBar';
@@ -78,6 +79,7 @@ export default function App() {
   const [knowledgeArticles, setKnowledgeArticles] = useState<KnowledgeArticle[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [videoSessions, setVideoSessions] = useState<VideoSession[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [facilities, setFacilities] = useState<string[]>([]);
   // Détail (id + nom) des établissements pour la gestion dans l'administration
   const [facilitiesDetail, setFacilitiesDetail] = useState<{ id: string; name: string }[]>([]);
@@ -434,6 +436,36 @@ export default function App() {
     );
     await Promise.allSettled(toMark.map((id) => api.markTicketViewed(id)));
     addToast('success', 'Tous marqués comme lus', `${toMark.length} ticket(s) marqué(s) comme consulté(s).`);
+  };
+
+  // Marque une notification comme lue
+  const handleMarkNotificationRead = async (notificationId: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)));
+    try {
+      const updated = await api.markNotificationRead(notificationId);
+      setNotifications((prev) => prev.map((n) => (n.id === notificationId ? updated : n)));
+    } catch {
+      /* serveur injoignable : l'état local reste marqué lu */
+    }
+  };
+
+  // Marque toutes les notifications comme lues
+  const handleMarkAllNotificationsRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await api.markAllNotificationsRead();
+    } catch {
+      /* serveur injoignable */
+    }
+  };
+
+  // Ouvre le ticket lié à une notification (onglet Incidents & Signalements)
+  const handleOpenNotificationTicket = (ticketId?: string) => {
+    if (ticketId) {
+      const tkt = tickets.find((t) => t.id === ticketId);
+      if (tkt) handleMarkTicketViewed(ticketId);
+    }
+    handleSelectTab('tickets');
   };
 
   // Marque un ticket comme consulté par l'utilisateur courant (badge « non lu »)
@@ -853,6 +885,12 @@ export default function App() {
       } catch {
         /* historique des sessions indisponible */
       }
+      try {
+        const notifs = await api.getNotifications();
+        setNotifications(notifs);
+      } catch {
+        /* notifications indisponibles */
+      }
       addToast(
         'success',
         'Connexion Réussie',
@@ -959,6 +997,10 @@ export default function App() {
         incomingCallSessions={videoSessions}
         onMarkCallViewed={handleMarkCallViewed}
         onJoinIncomingCall={handleJoinIncomingCall}
+        notifications={notifications}
+        onMarkNotificationRead={handleMarkNotificationRead}
+        onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+        onOpenNotificationTicket={handleOpenNotificationTicket}
       />
 
       {/* Role Context Bar */}

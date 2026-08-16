@@ -8,6 +8,7 @@ import type {
   TicketStatus,
   UrgencyLevel,
   VideoSession,
+  AppNotification,
 } from '../types';
 import { can } from './permissions';
 
@@ -134,6 +135,13 @@ export const api = {
   // --- Audit ---
   getAudit: () => apiFetch<{ logs: AuditLog[] }>('/api/audit').then((d) => d.logs),
   deleteAudit: (id: string) => apiFetch<{ success: boolean }>(`/api/audit/${id}`, { method: 'DELETE' }),
+
+  // --- Notifications (assignation de signalements, appels…) ---
+  getNotifications: () => apiFetch<{ notifications: AppNotification[] }>('/api/notifications').then((d) => d.notifications),
+  markNotificationRead: (id: string) =>
+    apiFetch<{ notification: AppNotification }>(`/api/notifications/${id}/read`, { method: 'PUT' }).then((d) => d.notification),
+  markAllNotificationsRead: () =>
+    apiFetch<{ updated: number }>('/api/notifications/read-all', { method: 'PUT' }).then((d) => d.updated),
 
   // --- Sessions de visioconférence ---
   getVideoSessions: () => apiFetch<{ sessions: VideoSession[] }>('/api/video-sessions').then((d) => d.sessions),

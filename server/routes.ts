@@ -289,6 +289,24 @@ apiRouter.put('/tickets/:id/assign', requireAuth, requireRole('admin', 'engineer
     ],
   });
   logAudit(req, 'Affectation Ticket', `Ticket ${ticket.code}`, tech ? `Assigné à ${tech.name}` : 'Non assigné');
+
+  // Notification automatique au technicien assigné (pas de doublon si le
+  // même technicien est déjà assigné au ticket).
+  const currentAssignee = (ticket.assignedTo as { id?: string } | null)?.id;
+  if (tech && tech.id !== currentAssignee) {
+    insertRow('notifications', {
+      id: `notif-${Date.now()}`,
+      userId: tech.id as string,
+      type: 'ticket_assigned',
+      title: 'Signalement assigné',
+      message: `Le signalement ${ticket.code} (${ticket.equipmentName}) vous a été assigné par ${getAuthedUser(req).name}.`,
+      ticketId: ticket.id as string,
+      ticketCode: ticket.code as string,
+      createdAt: new Date().toISOString(),
+      read: 0,
+    });
+  }
+
   ok(res, { ticket: updated });
 });
 
@@ -360,6 +378,42 @@ apiRouter.put('/tickets/:id', requireAuth, requireRole('admin', 'engineer'), (re
   const updated = updateRow('tickets', req.params.id, clean);
   logAudit(req, 'Modification Ticket', `Ticket ${existing.code}`, 'Mise à jour des informations du ticket');
   ok(res, { ticket: updated });
+});
+
+// ---------------------------------------------------------------------------
+// Notifications (destinataire = utilisateur courant)
+// ---------------------------------------------------------------------------
+apiRouter.get('/notifications', requireAuth, (req, res) => {
+  const user = getAuthedUser(req);
+  const all = listAll('notifications') as Record<string, unknown>[];
+  const mine = all.filter((n) => n.userId === user.id);
+  // Non lues d'abord, puis par date décroissante
+  mine.sort((a, b) => {
+    if (Boolean(a.read) !== Boolean(b.read)) return Boolean(a.read) ? 1 : -1;
+    return String(b.createdAt).localeCompare(String(a.createdAt));
+  });
+  ok(res, { notifications: mine });
+});
+
+// Marque une notification comme lue (seul le destinataire peut le faire)
+apiRouter.put('/notifications/:id/read', requireAuth, (req, res) => {
+  const notif = getById('notifications', req.params.id);
+  if (!notif) return res.status(404).json({ error: 'Notification introuvable.' });
+  const user = getAuthedUser(req);
+  if (notif.userId !== user.id) return res.status(403).json({ error: 'Accès refusé.' });
+  const updated = updateRow('notifications', req.params.id, { read: 1 });
+  ok(res, { notification: updated });
+});
+
+// Marque toutes les notifications de l'utilisateur courant comme lues
+apiRouter.put('/notifications/read-all', requireAuth, (req, res) => {
+  const user = getAuthedUser(req);
+  const all = listAll('notifications') as Record<string, unknown>[];
+  const mine = all.filter((n) => n.userId === user.id && !n.read);
+  for (const n of mine) {
+    updateRow('notifications', n.id as string, { read: 1 });
+  }
+  ok(res, { updated: mine.length });
 });
 
 // ---------------------------------------------------------------------------

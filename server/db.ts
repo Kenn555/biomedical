@@ -159,6 +159,18 @@ CREATE TABLE IF NOT EXISTS video_sessions (
   viewedBy TEXT,
   createdBy TEXT
 );
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  userId TEXT NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT,
+  message TEXT,
+  ticketId TEXT,
+  ticketCode TEXT,
+  createdAt TEXT,
+  read INTEGER DEFAULT 0
+);
 `;
 
 db.exec(SCHEMA);
@@ -257,6 +269,12 @@ export const ENTITIES: Record<string, EntityDef> = {
     jsonCols: ['participants', 'messages', 'viewedBy', 'createdBy'],
     intCols: [],
     orderBy: 'startedAt DESC',
+  },
+  notifications: {
+    table: 'notifications',
+    jsonCols: [],
+    intCols: ['read'],
+    orderBy: 'createdAt DESC',
   },
 };
 
@@ -402,7 +420,7 @@ export function createInitialAdmin(data: {
 }
 
 export function resetDatabase(): void {
-  const tables = ['users', 'equipment', 'tickets', 'knowledge_articles', 'intervention_reports', 'audit_logs', 'facilities', 'video_sessions', 'sessions'];
+  const tables = ['users', 'equipment', 'tickets', 'knowledge_articles', 'intervention_reports', 'audit_logs', 'facilities', 'video_sessions', 'notifications', 'sessions'];
   for (const t of tables) {
     db.prepare(`DELETE FROM ${t}`).run();
   }

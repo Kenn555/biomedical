@@ -564,6 +564,66 @@ async function testVideoSessions(admin: CookieJar): Promise<void> {
   check('delete session → 200', del.status === 200);
 }
 
+async function testNotifications(admin: CookieJar): Promise<void> {
+  console.log('\n▶ Notifications (assignation automatique au technicien)');
+
+  // Le technicien n'a aucune notification au départ
+  const tech = await loginAs(TECH_EMAIL, PASSWORD);
+  check('login technicien → session', tech !== null);
+  if (!tech) return;
+
+  // (Les tests précédents assignent déjà des tickets → des notifications
+  // existent ; on vérifie l'état initial avant la nouvelle assignation.)
+  let list = await api('GET', '/notifications', tech);
+  const before = (list.data?.notifications as any[] || []).length;
+  check('liste notifications accessible', list.status === 200);
+
+  // Création d'un ticket puis assignation au technicien
+  const tkt = await api('POST', '/tickets', admin, {
+    equipmentId: TEST_FIXTURES.equipmentId2,
+    description: 'Ticket pour notification',
+    symptoms: ['Test'],
+    urgency: 'high',
+  });
+  const tid: string = tkt.data?.ticket?.id;
+  const code: string = tkt.data?.ticket?.code;
+  check('create ticket → 200', tkt.status === 200);
+
+  const asg = await api('PUT', `/tickets/${tid}/assign`, admin, { userId: TEST_FIXTURES.technicianUserId });
+  check('assignation au technicien → 200', asg.status === 200);
+
+  // Le technicien reçoit automatiquement une notification
+  list = await api('GET', '/notifications', tech);
+  const notifs = list.data?.notifications as any[] || [];
+  const assigned = notifs.find((n: any) => n.ticketId === tid);
+  check('notification reçue par le technicien', !!assigned);
+  check('type ticket_assigned', assigned?.type === 'ticket_assigned');
+  check('ticketCode renseigné', assigned?.ticketCode === code);
+  check('notification non lue', assigned?.read === false);
+  check('une notification de plus qu\'au départ',
+    (list.data?.notifications as any[] || []).length === before + 1);
+
+  // Marquer comme lue
+  const mark = await api('PUT', `/notifications/${assigned.id}/read`, tech);
+  check('marquage lu → 200', mark.status === 200);
+  check('notification lue', mark.data?.notification?.read === true);
+
+  // Ré-assignation du même technicien → pas de doublon
+  const asgAgain = await api('PUT', `/tickets/${tid}/assign`, admin, { userId: TEST_FIXTURES.technicianUserId });
+  check('ré-assignation → 200', asgAgain.status === 200);
+  list = await api('GET', '/notifications', tech);
+  const dupCount = (list.data?.notifications as any[] || []).filter((n: any) => n.ticketId === tid).length;
+  check('pas de doublon de notification', dupCount === 1);
+
+  // Un autre utilisateur ne peut pas marquer la notification du technicien
+  const other = await api('PUT', `/notifications/${assigned.id}/read`, admin);
+  check('autre utilisateur marquage → 403', other.status === 403);
+
+  // Nettoyage
+  const del = await api('DELETE', `/tickets/${tid}`, admin);
+  check('nettoyage ticket notification → 200', del.status === 200);
+}
+
 async function testTicketViewed(admin: CookieJar): Promise<void> {
   console.log('\n▶ Tickets non lus (badge Incidents & Signalements)');
 
@@ -850,6 +910,7 @@ async function main(): Promise<void> {
       await testAudit(admin);
       await testFacilities(admin);
       await testVideoSessions(admin);
+      await testNotifications(admin);
       await testTicketViewed(admin);
       await testRbac(admin);
       await testGranularPermissions(admin);
