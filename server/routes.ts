@@ -481,6 +481,44 @@ apiRouter.delete('/facilities/:id', requireAuth, requirePermission('canManageUse
 });
 
 // ---------------------------------------------------------------------------
+// Sessions de visioconférence (enregistrement durée, participants, messages)
+// ---------------------------------------------------------------------------
+apiRouter.get('/video-sessions', requireAuth, (req, res) => {
+  ok(res, { sessions: listAll('video_sessions') });
+});
+
+apiRouter.post('/video-sessions', requireAuth, (req, res) => {
+  const data = req.body || {};
+  const user = getAuthedUser(req);
+  const session = insertRow('video_sessions', {
+    id: `vs-${Date.now()}`,
+    roomName: data.roomName || 'BioMed-Room-General',
+    ticketCode: data.ticketCode || null,
+    equipmentCode: data.equipmentCode || null,
+    startedAt: data.startedAt || new Date().toISOString(),
+    endedAt: data.endedAt || new Date().toISOString(),
+    durationSeconds: Math.max(0, Number(data.durationSeconds) || 0),
+    participants: Array.isArray(data.participants) ? data.participants : [],
+    messages: Array.isArray(data.messages) ? data.messages : [],
+    createdBy: { id: user.id, name: user.name },
+  });
+  logAudit(
+    req,
+    'Session Visioconférence',
+    session.roomName as string,
+    `${session.durationSeconds}s — ${(session.participants as unknown as any[]).length} participant(s), ${(session.messages as unknown as any[]).length} message(s)`
+  );
+  ok(res, { session });
+});
+
+apiRouter.delete('/video-sessions/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {
+  const existing = getById('video_sessions', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Session introuvable.' });
+  deleteRow('video_sessions', req.params.id);
+  ok(res, {});
+});
+
+// ---------------------------------------------------------------------------
 // Admin utilities
 // ---------------------------------------------------------------------------
 apiRouter.post('/admin/reset-data', requireAuth, requirePermission('canManageUsers'), (req, res) => {

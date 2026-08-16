@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserProfile, AuditLog, Equipment, EquipmentCategory, EquipmentStatus, UserRole } from '../types';
+import { UserProfile, AuditLog, Equipment, EquipmentCategory, EquipmentStatus, UserRole, VideoSession } from '../types';
 import {
   ShieldCheck,
   Users,
@@ -18,7 +18,11 @@ import {
   Mail,
   Phone,
   Shield,
-  Filter
+  Filter,
+  Video,
+  Mic,
+  Clock,
+  MessageSquare
 } from 'lucide-react';
 import { getRoleLabel } from './Header';
 import { ImageUploadButton } from './ImageUploadButton';
@@ -36,6 +40,8 @@ interface AdminUsersAuditProps {
   facilities?: string[];
   /** Détail (id + nom) des établissements pour l'onglet de gestion */
   facilitiesDetail?: { id: string; name: string }[];
+  /** Historique des sessions de visioconférence enregistrées */
+  videoSessions?: VideoSession[];
   /** false pour un ingénieur/manager : seuls les admins gèrent acteurs & audit */
   canManageUsers?: boolean;
   /** password : à la création c'est le mot de passe initial ; en modification, vide = inchangé */
@@ -49,6 +55,7 @@ interface AdminUsersAuditProps {
   onUpdateFacility?: (id: string, name: string) => void;
   /** transferTo : site cible pour les équipements/acteurs rattachés avant suppression */
   onDeleteFacility?: (id: string, transferTo?: string) => void;
+  onDeleteVideoSession?: (id: string) => void;
 }
 
 export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
@@ -57,6 +64,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   equipmentList,
   facilities = [],
   facilitiesDetail = [],
+  videoSessions = [],
   canManageUsers = true,
   onAddUser,
   onUpdateUser,
@@ -67,8 +75,9 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   onAddFacility,
   onUpdateFacility,
   onDeleteFacility,
+  onDeleteVideoSession,
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'equipment' | 'audit' | 'facilities'>(
+  const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'equipment' | 'audit' | 'facilities' | 'sessions'>(
     canManageUsers ? 'users' : 'equipment'
   );
 
@@ -523,6 +532,18 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
           >
             <Building2 className="w-4 h-4 text-sky-400" />
             <span>Établissements ({facilitiesDetail.length})</span>
+          </button>
+        )}
+
+        {canManageUsers && (
+          <button
+            onClick={() => setActiveTab('sessions')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              activeTab === 'sessions' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Video className="w-4 h-4 text-rose-400" />
+            <span>Sessions Vidéo ({videoSessions.length})</span>
           </button>
         )}
 
@@ -1005,6 +1026,105 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
           <p className="text-[10px] text-slate-400 font-medium border-t border-slate-200/80 pt-3">
             Les établissements créés ici sont immédiatement disponibles dans tous les sélecteurs de l'application (filtre du header, formulaires acteurs et équipements, alertes critiques).
           </p>
+        </div>
+      )}
+
+      {/* TAB 3ter: SESSIONS VIDÉO ENREGISTRÉES */}
+      {activeTab === 'sessions' && (
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                <Video className="w-4 h-4 text-rose-600" />
+                <span>Historique des Sessions de Visioconférence</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">Durée, acteurs présents et messages échangés lors de chaque session vidéo</p>
+            </div>
+            <span className="text-xs font-mono font-bold bg-rose-50 text-rose-700 px-3 py-1 rounded-full border border-rose-200">
+              {videoSessions.length} session(s) enregistrée(s)
+            </span>
+          </div>
+
+          {videoSessions.length === 0 ? (
+            <div className="text-center py-10 space-y-2">
+              <Video className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-bold text-slate-700">Aucune session enregistrée</p>
+              <p className="text-xs text-slate-500">Les sessions de visioconférence (durée, participants, messages) apparaîtront ici après un raccrochage.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {videoSessions.map((session) => {
+                const minutes = Math.floor(session.durationSeconds / 60);
+                const secs = session.durationSeconds % 60;
+                const durationLabel = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                const startedLabel = new Date(session.startedAt).toLocaleString('fr-FR');
+                return (
+                  <div key={session.id} className="bg-slate-50 rounded-xl border border-slate-200/80 p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2 min-w-0">
+                        <Video className="w-4 h-4 text-rose-500 shrink-0" />
+                        <span className="font-mono font-bold text-slate-900 truncate">{session.roomName}</span>
+                        {session.ticketCode && (
+                          <span className="text-[10px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-md">{session.ticketCode}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md flex items-center space-x-1">
+                          <Clock className="w-3 h-3" />
+                          <span>{durationLabel}</span>
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Supprimer cette session enregistrée ?')) {
+                              if (onDeleteVideoSession) onDeleteVideoSession(session.id);
+                            }
+                          }}
+                          className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 p-1.5 rounded-lg transition-colors cursor-pointer"
+                          title="Supprimer la session"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 font-medium">Début : {startedLabel} — Fin : {new Date(session.endedAt).toLocaleString('fr-FR')}</p>
+
+                    {/* Participants présents */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center space-x-1">
+                        <Users className="w-3 h-3" />
+                        <span>Présents ({session.participants?.length || 0}) :</span>
+                      </span>
+                      {session.participants?.map((p) => (
+                        <span key={p.id} className="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-md">
+                          {p.name}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Messages échangés */}
+                    {session.messages && session.messages.length > 0 && (
+                      <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-2">
+                        <h4 className="text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center space-x-1">
+                          <MessageSquare className="w-3 h-3" />
+                          <span>Messages ({session.messages.length})</span>
+                        </h4>
+                        <div className="max-h-40 overflow-y-auto space-y-1.5">
+                          {session.messages.map((m, idx) => (
+                            <div key={idx} className="text-[11px] flex items-start space-x-2">
+                              <span className="font-mono text-slate-400 shrink-0">{m.time}</span>
+                              <span className="font-bold text-slate-800 shrink-0">{m.sender}:</span>
+                              <span className="text-slate-600">{m.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

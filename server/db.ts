@@ -154,6 +154,19 @@ CREATE TABLE IF NOT EXISTS sessions (
   createdAt TEXT,
   expiresAt TEXT
 );
+
+CREATE TABLE IF NOT EXISTS video_sessions (
+  id TEXT PRIMARY KEY,
+  roomName TEXT NOT NULL,
+  ticketCode TEXT,
+  equipmentCode TEXT,
+  startedAt TEXT,
+  endedAt TEXT,
+  durationSeconds INTEGER,
+  participants TEXT,
+  messages TEXT,
+  createdBy TEXT
+);
 `;
 
 db.exec(SCHEMA);
@@ -234,6 +247,12 @@ export const ENTITIES: Record<string, EntityDef> = {
     jsonCols: [],
     intCols: [],
     orderBy: 'name ASC',
+  },
+  video_sessions: {
+    table: 'video_sessions',
+    jsonCols: ['participants', 'messages', 'createdBy'],
+    intCols: [],
+    orderBy: 'startedAt DESC',
   },
 };
 

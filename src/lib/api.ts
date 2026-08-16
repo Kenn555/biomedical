@@ -7,6 +7,7 @@ import type {
   AuditLog,
   TicketStatus,
   UrgencyLevel,
+  VideoSession,
 } from '../types';
 import { can } from './permissions';
 
@@ -123,6 +124,16 @@ export const api = {
   // --- Audit ---
   getAudit: () => apiFetch<{ logs: AuditLog[] }>('/api/audit').then((d) => d.logs),
   deleteAudit: (id: string) => apiFetch<{ success: boolean }>(`/api/audit/${id}`, { method: 'DELETE' }),
+
+  // --- Sessions de visioconférence ---
+  getVideoSessions: () => apiFetch<{ sessions: VideoSession[] }>('/api/video-sessions').then((d) => d.sessions),
+  createVideoSession: (session: Partial<VideoSession>) =>
+    apiFetch<{ session: VideoSession }>('/api/video-sessions', {
+      method: 'POST',
+      body: JSON.stringify(session),
+    }).then((d) => d.session),
+  deleteVideoSession: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/video-sessions/${id}`, { method: 'DELETE' }),
 
   // --- Facilities ---
   getFacilities: () => apiFetch<{ facilities: string[] }>('/api/facilities').then((d) => d.facilities),

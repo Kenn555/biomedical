@@ -412,6 +412,44 @@ async function testFacilities(admin: CookieJar): Promise<void> {
   check('delete facility → 200', del.status === 200);
 }
 
+async function testVideoSessions(admin: CookieJar): Promise<void> {
+  console.log('\n▶ Sessions de visioconférence (durée, participants, messages)');
+
+  const created = await api('POST', '/video-sessions', admin, {
+    roomName: 'BioMed-INC-TEST-01',
+    ticketCode: 'INC-TEST-01',
+    startedAt: '2026-08-16T10:00:00.000Z',
+    endedAt: '2026-08-16T10:05:30.000Z',
+    durationSeconds: 330,
+    participants: [
+      { id: 'usr-adm-01', name: 'Admin Système', role: 'admin' },
+      { id: 'usr-eng-01', name: 'Dr. Bakoly Rakoto', role: 'engineer' },
+    ],
+    messages: [
+      { sender: 'Admin Test', time: '12:00', text: 'Bonjour, session de test.' },
+      { sender: 'Dr. Bakoly Rakoto', time: '12:01', text: 'Je vois le flux.' },
+    ],
+  });
+  check('create session vidéo → 200', created.status === 200);
+  check('durée enregistrée', created.data?.session?.durationSeconds === 330);
+  check('participants enregistrés', (created.data?.session?.participants as any[] || []).length === 2);
+  check('messages enregistrés', (created.data?.session?.messages as any[] || []).length === 2);
+  check('créateur renseigné', created.data?.session?.createdBy?.id === 'usr-adm-01');
+
+  const list = await api('GET', '/video-sessions', admin);
+  const found = (list.data?.sessions as any[] || []).find((s: any) => s.roomName === 'BioMed-INC-TEST-01');
+  check('liste des sessions → contient la session de test', !!found);
+
+  // Audit de la session
+  const auditList = await api('GET', '/audit', admin);
+  const hasAudit = (auditList.data?.logs as any[] || []).some((l: any) => l.action === 'Session Visioconférence');
+  check('audit de session vidéo créé', hasAudit);
+
+  const vsid: string = created.data?.session?.id;
+  const del = await api('DELETE', `/video-sessions/${vsid}`, admin);
+  check('delete session → 200', del.status === 200);
+}
+
 async function testRbac(admin: CookieJar): Promise<void> {
   console.log('\n▶ RBAC (droits par rôle)');
 
@@ -652,6 +690,7 @@ async function main(): Promise<void> {
       await testReports(admin);
       await testAudit(admin);
       await testFacilities(admin);
+      await testVideoSessions(admin);
       await testRbac(admin);
       await testGranularPermissions(admin);
       await testUserPasswords(admin);

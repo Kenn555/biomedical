@@ -7,7 +7,8 @@ import {
   AuditLog,
   TicketStatus,
   UrgencyLevel,
-  InterventionReport
+  InterventionReport,
+  VideoSession
 } from './types';
 import {
   MOCK_USERS,
@@ -77,6 +78,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() =>
     getCachedData(STORAGE_KEYS.AUDIT, MOCK_AUDIT_LOGS)
   );
+  const [videoSessions, setVideoSessions] = useState<VideoSession[]>([]);
   const [facilities, setFacilities] = useState<string[]>(MOCK_FACILITIES);
   // Détail (id + nom) des établissements pour la gestion dans l'administration
   const [facilitiesDetail, setFacilitiesDetail] = useState<{ id: string; name: string }[]>(
@@ -677,6 +679,21 @@ export default function App() {
     }
   };
 
+  const handleDeleteVideoSession = async (id: string) => {
+    setVideoSessions((prev) => prev.filter((s) => s.id !== id));
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        await api.deleteVideoSession(id);
+      } catch {
+        addToast(
+          'warning',
+          'Synchronisation différée',
+          'La suppression de la session sera transmise au serveur plus tard.'
+        );
+      }
+    }
+  };
+
   const handleDeleteFacility = async (id: string, transferTo?: string) => {
     const target = facilitiesDetail.find((f) => f.id === id);
     const name = target?.name || id;
@@ -749,6 +766,12 @@ export default function App() {
         setFacilitiesDetail(detail);
       } catch {
         /* liste détaillée indisponible (rôle sans canManageUsers) : on garde les noms seuls */
+      }
+      try {
+        const sessions = await api.getVideoSessions();
+        setVideoSessions(sessions);
+      } catch {
+        /* historique des sessions indisponible */
       }
       addToast(
         'success',
@@ -948,6 +971,7 @@ export default function App() {
               equipmentList={equipmentList}
               facilities={facilities}
               facilitiesDetail={facilitiesDetail}
+              videoSessions={videoSessions}
               canManageUsers={can(currentUser, 'canManageUsers')}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
@@ -958,6 +982,7 @@ export default function App() {
               onAddFacility={handleAddFacility}
               onUpdateFacility={handleUpdateFacility}
               onDeleteFacility={handleDeleteFacility}
+              onDeleteVideoSession={handleDeleteVideoSession}
             />
           ) : (
             <div className="bg-white border border-slate-200/80 rounded-2xl p-8 text-center shadow-sm">
@@ -1028,6 +1053,8 @@ export default function App() {
         onClose={() => {
           setIsVideoConferenceOpen(false);
           setSelectedTicketForVideoCall(null);
+          // Recharge l'historique des sessions enregistrées
+          api.getVideoSessions().then(setVideoSessions).catch(() => {});
         }}
         ticket={selectedTicketForVideoCall}
         equipment={selectedEquipmentForTeleSession || selectedEquipmentForModal}

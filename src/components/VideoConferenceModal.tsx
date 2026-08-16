@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { IncidentTicket, Equipment, UserProfile } from '../types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { IncidentTicket, Equipment, UserProfile, VideoSession } from '../types';
+import { api } from '../lib/api';
 import {
   Video,
   VideoOff,
@@ -19,7 +20,6 @@ import {
   Trash2,
   Download,
   Share2,
-  ExternalLink,
   ShieldCheck,
   Zap,
   Activity,
@@ -48,8 +48,14 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'local' | 'jitsi' | 'split'>('local');
   const [isAnnotating, setIsAnnotating] = useState(false);
+  // Enregistrement de session : durée, participants présents, messages
+  const [sessionElapsed, setSessionElapsed] = useState(0);
+  const [isSavingSession, setIsSavingSession] = useState(false);
+  const [lastSavedSession, setLastSavedSession] = useState<VideoSession | null>(null);
+  const sessionStartRef = useRef<number | null>(null);
+  const elapsedTimerRef = useRef<number | null>(null);
+  const hasSavedRef = useRef(false);
   const [chatMessages, setChatMessages] = useState<
     { sender: string; time: string; text: string; isAi?: boolean }[]
   >([
@@ -79,13 +85,27 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
     ? `BioMed-${ticket.code}`
     : `BioMed-Room-${equipment ? equipment.code : 'General'}`;
 
-  const jitsiUrl = `https://meet.jit.si/${roomName}#config.prejoinPageEnabled=false&interfaceConfig.TOOLBAR_BUTTONS=['microphone','camera','desktop','fullscreen','hangup']`;
+  // Acteurs présents dans la session : l'utilisateur connecté + le télé-expert distant
+  const sessionParticipants = [
+    { id: currentUser.id, name: currentUser.name, role: currentUser.role },
+    { id: 'usr-eng-01', name: 'Dr. Bakoly Rakoto (Ingénieur)', role: 'engineer' },
+  ];
 
-  // Start Real Camera WebRTC Stream when modal opens
+  // Démarre le chrono de session et la caméra WebRTC à l'ouverture
   useEffect(() => {
     let activeStream: MediaStream | null = null;
 
     if (isOpen) {
+      hasSavedRef.current = false;
+      setLastSavedSession(null);
+      setSessionElapsed(0);
+      sessionStartRef.current = Date.now();
+      elapsedTimerRef.current = window.setInterval(() => {
+        setSessionElapsed(() =>
+          sessionStartRef.current ? Math.floor((Date.now() - sessionStartRef.current) / 1000) : 0
+        );
+      }, 1000);
+
       setPermissionError(null);
       navigator.mediaDevices
         .getUserMedia({ video: true, audio: true })
@@ -105,18 +125,22 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
     }
 
     return () => {
+      if (elapsedTimerRef.current !== null) {
+        window.clearInterval(elapsedTimerRef.current);
+        elapsedTimerRef.current = null;
+      }
       if (activeStream) {
         activeStream.getTracks().forEach((track) => track.stop());
       }
     };
   }, [isOpen]);
 
-  // Bind video element whenever stream changes or viewMode updates
+  // Bind video element whenever stream changes
   useEffect(() => {
     if (localVideoRef.current && stream) {
       localVideoRef.current.srcObject = stream;
     }
-  }, [stream, viewMode]);
+  }, [stream]);
 
   // Toggle Video Track
   const toggleVideo = () => {
@@ -275,9 +299,48 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://meet.jit.si/${roomName}`);
+    navigator.clipboard.writeText(roomName);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const formatDuration = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  // Enregistre la session (durée, participants, messages) puis ferme
+  const saveSession = useCallback(async () => {
+    if (hasSavedRef.current) return;
+    hasSavedRef.current = true;
+    setIsSavingSession(true);
+    const startedAt = sessionStartRef.current || Date.now();
+    const endedAt = Date.now();
+    const durationSeconds = Math.max(1, Math.floor((endedAt - startedAt) / 1000));
+    const session: Partial<VideoSession> = {
+      roomName,
+      ticketCode: ticket?.code,
+      equipmentCode: equipment?.code,
+      startedAt: new Date(startedAt).toISOString(),
+      endedAt: new Date(endedAt).toISOString(),
+      durationSeconds,
+      participants: sessionParticipants,
+      messages: chatMessages.map((m) => ({ sender: m.sender, time: m.time, text: m.text, isAi: m.isAi })),
+    };
+    try {
+      const saved = await api.createVideoSession(session);
+      setLastSavedSession(saved);
+    } catch (err) {
+      console.warn('Échec de l\'enregistrement de la session :', err);
+    } finally {
+      setIsSavingSession(false);
+    }
+  }, [roomName, ticket, equipment, sessionParticipants, chatMessages]);
+
+  // Fermeture : enregistre la session puis appelle onClose (une seule fois)
+  const handleHangUp = () => {
+    void saveSession().then(() => onClose());
   };
 
   if (!isOpen) return null;
@@ -313,34 +376,17 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
 
           {/* Right Header Options */}
           <div className="flex items-center space-x-2 shrink-0">
-            {/* View Mode Toggle */}
-            <div className="bg-slate-800 p-1 rounded-xl flex items-center space-x-1 text-xs">
-              <button
-                onClick={() => setViewMode('local')}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                  viewMode === 'local'
-                    ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                WebRTC Direct
-              </button>
-              <button
-                onClick={() => setViewMode('jitsi')}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center space-x-1 ${
-                  viewMode === 'jitsi'
-                    ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <span>Salle Multi-Sites</span>
-                <ExternalLink className="w-3 h-3" />
-              </button>
+            {/* Badge Session Propriétaire + durée en cours */}
+            <div className="bg-slate-800 px-3 py-1.5 rounded-xl flex items-center space-x-2 text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
+              <span className="font-mono font-bold text-emerald-400">{formatDuration(sessionElapsed)}</span>
             </div>
 
             <button
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              onClick={handleHangUp}
+              disabled={isSavingSession}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              title="Raccrocher et enregistrer la session"
             >
               <X className="w-5 h-5" />
             </button>
@@ -367,18 +413,8 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
               </div>
             )}
 
-            {/* Video Canvas Container depending on viewMode */}
+            {/* Video Canvas : flux WebRTC propriétaire intégré */}
             <div className="flex-1 relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center group">
-              {viewMode === 'jitsi' ? (
-                /* Embedded Jitsi WebRTC iframe for multi-party conference */
-                <iframe
-                  src={jitsiUrl}
-                  title="Biomedical Jitsi Conference"
-                  className="w-full h-full border-none rounded-2xl"
-                  allow="camera; microphone; display-capture; autoplay; clipboard-write"
-                />
-              ) : (
-                /* Native WebRTC Media Stream Video Tag */
                 <>
                   <video
                     ref={localVideoRef}
@@ -441,9 +477,13 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
                         <span>Partage d'écran actif</span>
                       </span>
                     )}
+                    {/* Durée de session en direct */}
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-900/80 border border-slate-700/80 text-[10px] font-mono font-bold text-amber-300 backdrop-blur-md inline-flex items-center space-x-1">
+                      <Activity className="w-3 h-3 text-amber-400" />
+                      <span>Durée : {formatDuration(sessionElapsed)}</span>
+                    </span>
                   </div>
                 </>
-              )}
             </div>
 
             {/* Video Controls Bar */}
@@ -533,18 +573,49 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
 
               {/* Right Call Termination Button */}
               <button
-                onClick={onClose}
-                className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition-all cursor-pointer flex items-center space-x-2 shadow-lg shadow-rose-900/40"
+                onClick={handleHangUp}
+                disabled={isSavingSession}
+                className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition-all cursor-pointer flex items-center space-x-2 shadow-lg shadow-rose-900/40 disabled:opacity-60"
+                title="Raccrocher et enregistrer la session"
               >
                 <PhoneOff className="w-4 h-4" />
-                <span>Raccrocher</span>
+                <span>{isSavingSession ? 'Enregistrement…' : 'Raccrocher'}</span>
               </button>
             </div>
           </div>
 
           {/* Right Panel: Live Telemetry & Chat (col-4 on desktop) */}
           <div className="lg:col-span-4 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between p-4 space-y-4">
-            {/* Header section with room link */}
+            {/* Participants présents + durée */}
+            <div className="bg-slate-950/80 rounded-2xl border border-slate-800 p-3 space-y-2">
+              <h4 className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider flex items-center space-x-1.5">
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Acteurs présents ({sessionParticipants.length})</span>
+              </h4>
+              <div className="space-y-1.5">
+                {sessionParticipants.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-200 font-semibold truncate">{p.name}</span>
+                    <span className="flex items-center space-x-1.5 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                      <span className="text-emerald-400 font-mono text-[10px] font-bold">Présent</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+                <span className="text-slate-400 font-semibold">Durée de session</span>
+                <span className="font-mono font-bold text-amber-300">{formatDuration(sessionElapsed)}</span>
+              </div>
+              {isSavingSession && (
+                <p className="text-[10px] text-emerald-400 font-bold animate-pulse pt-1">Enregistrement de la session…</p>
+              )}
+              {lastSavedSession && (
+                <p className="text-[10px] text-emerald-400 font-bold pt-1">✓ Session enregistrée ({formatDuration(lastSavedSession.durationSeconds)})</p>
+              )}
+            </div>
+
+            {/* Header section with room name */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider flex items-center space-x-1.5">
@@ -555,9 +626,10 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
                 <button
                   onClick={handleCopyLink}
                   className="text-[11px] text-slate-400 hover:text-emerald-400 font-bold flex items-center space-x-1 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                  title="Copier le nom de la salle"
                 >
                   {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Share2 className="w-3 h-3" />}
-                  <span>{isCopied ? 'Lien copié' : 'Partager lien'}</span>
+                  <span>{isCopied ? 'Salle copiée' : 'Salle'}</span>
                 </button>
               </div>
 

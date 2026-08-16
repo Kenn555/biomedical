@@ -193,3 +193,29 @@ export interface ChatMessage {
   timestamp: string;
   isAi?: boolean;
 }
+
+/** Session de visioconférence enregistrée (durée, participants présents, messages) */
+export interface VideoSession {
+  id: string;
+  roomName: string;
+  ticketCode?: string;
+  equipmentCode?: string;
+  startedAt: string;           // ISO timestamp de début
+  endedAt: string;             // ISO timestamp de fin
+  durationSeconds: number;
+  participants: {
+    id: string;
+    name: string;
+    role: string;
+  }[];
+  messages: {
+    sender: string;
+    time: string;
+    text: string;
+    isAi?: boolean;
+  }[];
+  createdBy?: {
+    id: string;
+    name: string;
+  };
+}
