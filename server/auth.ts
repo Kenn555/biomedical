@@ -106,6 +106,47 @@ export function requireRole(...roles: string[]) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Permissions fines (RBAC) — mêmes clés que la matrice côté client.
+// Un utilisateur sans permissions explicites hérite des valeurs par défaut
+// de son rôle, pour rester compatible avec les comptes existants.
+// ---------------------------------------------------------------------------
+export type PermissionKey =
+  | 'canReportIncident'
+  | 'canRunDiagnostic'
+  | 'canCloseIntervention'
+  | 'canManageEquipment'
+  | 'canManageUsers';
+
+const DEFAULT_PERMISSIONS: Record<string, Record<PermissionKey, boolean>> = {
+  technician: { canReportIncident: true, canRunDiagnostic: true, canCloseIntervention: true, canManageEquipment: false, canManageUsers: false },
+  engineer: { canReportIncident: true, canRunDiagnostic: true, canCloseIntervention: true, canManageEquipment: true, canManageUsers: false },
+  doctor: { canReportIncident: true, canRunDiagnostic: true, canCloseIntervention: true, canManageEquipment: false, canManageUsers: false },
+  nurse: { canReportIncident: true, canRunDiagnostic: true, canCloseIntervention: true, canManageEquipment: false, canManageUsers: false },
+  manager: { canReportIncident: true, canRunDiagnostic: true, canCloseIntervention: true, canManageEquipment: false, canManageUsers: false },
+  director: { canReportIncident: true, canRunDiagnostic: true, canCloseIntervention: true, canManageEquipment: false, canManageUsers: false },
+  vendor: { canReportIncident: true, canRunDiagnostic: true, canCloseIntervention: true, canManageEquipment: false, canManageUsers: false },
+  admin: { canReportIncident: true, canRunDiagnostic: true, canCloseIntervention: true, canManageEquipment: true, canManageUsers: true },
+};
+
+export function hasPermission(user: AuthUser | null | undefined, permission: PermissionKey): boolean {
+  if (!user) return false;
+  const explicit = user.permissions?.[permission];
+  if (explicit !== undefined) return explicit;
+  return DEFAULT_PERMISSIONS[user.role]?.[permission] ?? false;
+}
+
+export function requirePermission(...permissions: PermissionKey[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const user = (req as Request & { user?: AuthUser }).user;
+    if (!user || !permissions.some((p) => hasPermission(user, p))) {
+      res.status(403).json({ error: 'Accès refusé : permission insuffisante.' });
+      return;
+    }
+    next();
+  };
+}
+
 export function attemptLogin(email: string, password: string): AuthUser | null {
   const row = findBy('users', 'email', email);
   if (!row) return null;

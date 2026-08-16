@@ -18,9 +18,11 @@ import { getCategoryLabel } from './EquipmentCard';
 interface KnowledgeBaseProps {
   articles: KnowledgeArticle[];
   onAddArticle: (article: KnowledgeArticle) => void;
+  /** true si l'utilisateur peut rédiger des fiches (admin / ingénieur) */
+  canWrite?: boolean;
 }
 
-export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ articles, onAddArticle }) => {
+export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ articles, onAddArticle, canWrite = false }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -122,13 +124,15 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ articles, onAddArt
             </select>
           </div>
 
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
-          >
-            <PlusCircle className="w-4 h-4 text-emerald-400" />
-            <span>Rédiger une Fiche Technique</span>
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
+            >
+              <PlusCircle className="w-4 h-4 text-emerald-400" />
+              <span>Rédiger une Fiche Technique</span>
+            </button>
+          )}
         </div>
       </div>
 

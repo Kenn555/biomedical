@@ -15,6 +15,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
+import { can } from '../lib/permissions';
 
 interface HeaderProps {
   currentUser: UserProfile;
@@ -141,17 +142,19 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {/* Signalement rapide button */}
-            <button
-              onClick={onOpenReportModal}
-              className="group relative flex items-center justify-center space-x-1.5 bg-rose-600 hover:bg-rose-700 text-white p-2 sm:px-3 sm:py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer whitespace-nowrap"
-              title="Signaler une panne d'équipement"
-            >
-              <PlusCircle className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">Signaler Panne</span>
-            </button>
+            {can(currentUser, 'canReportIncident') && (
+              <button
+                onClick={onOpenReportModal}
+                className="group relative flex items-center justify-center space-x-1.5 bg-rose-600 hover:bg-rose-700 text-white p-2 sm:px-3 sm:py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                title="Signaler une panne d'équipement"
+              >
+                <PlusCircle className="w-4 h-4 shrink-0" />
+                <span className="hidden md:inline">Signaler Panne</span>
+              </button>
+            )}
 
             {/* Visioconférence Directe button */}
-            {onOpenVideoCall && (
+            {onOpenVideoCall && can(currentUser, 'canRunDiagnostic') && (
               <button
                 onClick={onOpenVideoCall}
                 className="group relative flex items-center justify-center space-x-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 p-2 sm:px-3 sm:py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer shadow-2xs whitespace-nowrap"
@@ -207,12 +210,14 @@ export const Header: React.FC<HeaderProps> = ({
             label="Alertes Critiques & MTTR"
             icon={<ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />}
           />
-          <NavButton
-            active={activeTab === 'admin'}
-            onClick={() => onSelectTab('admin')}
-            label="Administration & Audit"
-            icon={<ShieldCheck className="w-4 h-4 shrink-0" />}
-          />
+          {(can(currentUser, 'canManageUsers') || can(currentUser, 'canManageEquipment')) && (
+            <NavButton
+              active={activeTab === 'admin'}
+              onClick={() => onSelectTab('admin')}
+              label="Administration & Audit"
+              icon={<ShieldCheck className="w-4 h-4 shrink-0" />}
+            />
+          )}
         </div>
       </div>
     </header>

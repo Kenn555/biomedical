@@ -27,8 +27,11 @@ interface AdminUsersAuditProps {
   users: UserProfile[];
   auditLogs: AuditLog[];
   equipmentList: Equipment[];
-  onAddUser?: (newUser: UserProfile) => void;
-  onUpdateUser?: (updatedUser: UserProfile) => void;
+  /** false pour un ingénieur/manager : seuls les admins gèrent acteurs & audit */
+  canManageUsers?: boolean;
+  /** password : à la création c'est le mot de passe initial ; en modification, vide = inchangé */
+  onAddUser?: (newUser: UserProfile, password?: string) => void;
+  onUpdateUser?: (updatedUser: UserProfile, password?: string) => void;
   onDeleteUser?: (userId: string) => void;
   onAddEquipment: (newEq: Equipment) => void;
   onUpdateEquipment?: (updatedEq: Equipment) => void;
@@ -39,6 +42,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   users,
   auditLogs,
   equipmentList,
+  canManageUsers = true,
   onAddUser,
   onUpdateUser,
   onDeleteUser,
@@ -46,7 +50,9 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   onUpdateEquipment,
   onDeleteEquipment,
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'equipment' | 'audit'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'equipment' | 'audit'>(
+    canManageUsers ? 'users' : 'equipment'
+  );
 
   // Search & Filters
   const [userSearch, setUserSearch] = useState('');
@@ -67,6 +73,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   const [userPhone, setUserPhone] = useState('+261 34 00 000 00');
   const [userSpecialty, setUserSpecialty] = useState('Biomédical & Maintenance');
   const [userAvatar, setUserAvatar] = useState('');
+  const [userPassword, setUserPassword] = useState('');
   const [userPermissions, setUserPermissions] = useState({
     canReportIncident: true,
     canRunDiagnostic: true,
@@ -127,6 +134,8 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
       setUserPhone(user.phone || '');
       setUserSpecialty(user.specialty || '');
       setUserAvatar(user.avatar || '');
+      // En modification : laisser vide pour conserver le mot de passe actuel
+      setUserPassword('');
       setUserPermissions({
         canReportIncident: user.permissions?.canReportIncident ?? true,
         canRunDiagnostic: user.permissions?.canRunDiagnostic ?? true,
@@ -144,6 +153,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
       setUserPhone('+261 34 12 345 67');
       setUserSpecialty('Maintenance & Équipements');
       setUserAvatar('');
+      setUserPassword('');
       setUserPermissions({
         canReportIncident: true,
         canRunDiagnostic: true,
@@ -177,10 +187,10 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     };
 
     if (editingUser) {
-      if (onUpdateUser) onUpdateUser(userData);
+      if (onUpdateUser) onUpdateUser(userData, userPassword.trim() || undefined);
       alert(`Profil de ${userName} mis à jour avec succès !`);
     } else {
-      if (onAddUser) onAddUser(userData);
+      if (onAddUser) onAddUser(userData, userPassword.trim() || undefined);
       alert(`Acteur ${userName} créé avec succès !`);
     }
 
@@ -350,25 +360,29 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     <div className="space-y-6">
       {/* Control Navigation Tabs */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-2 shadow-sm flex flex-wrap gap-2">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
-            activeTab === 'users' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <Users className="w-4 h-4 text-emerald-400" />
-          <span>Gestion des Acteurs ({users.length})</span>
-        </button>
+        {canManageUsers && (
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              activeTab === 'users' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Users className="w-4 h-4 text-emerald-400" />
+            <span>Gestion des Acteurs ({users.length})</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('permissions')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
-            activeTab === 'permissions' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <Key className="w-4 h-4 text-amber-400" />
-          <span>Matrice des Permissions & RBAC</span>
-        </button>
+        {canManageUsers && (
+          <button
+            onClick={() => setActiveTab('permissions')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              activeTab === 'permissions' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Key className="w-4 h-4 text-amber-400" />
+            <span>Matrice des Permissions & RBAC</span>
+          </button>
+        )}
 
         <button
           onClick={() => setActiveTab('equipment')}
@@ -380,15 +394,17 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
           <span>Gestion du Parc Équipements ({equipmentList.length})</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
-            activeTab === 'audit' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4 text-purple-400" />
-          <span>Journaux d'Audit HDS</span>
-        </button>
+        {canManageUsers && (
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              activeTab === 'audit' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 text-purple-400" />
+            <span>Journaux d'Audit HDS</span>
+          </button>
+        )}
       </div>
 
       {/* TAB 1: GESTION DES ACTEURS (LISTE, CREER, MODIFIER, SUPPRIMER) */}
@@ -859,6 +875,26 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                     className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs"
                   />
                 </div>
+              </div>
+
+              {/* Mot de passe (l'acteur est aussi un utilisateur de la plateforme) */}
+              <div>
+                <label className="font-bold text-slate-900 block mb-1">
+                  Mot de Passe {editingUser ? '(facultatif)' : ''}
+                </label>
+                <input
+                  type="password"
+                  value={userPassword}
+                  onChange={(e) => setUserPassword(e.target.value)}
+                  minLength={6}
+                  placeholder={editingUser ? 'Laisser vide pour conserver le mot de passe actuel' : 'Défaut : biomed123 (6 caractères min.)'}
+                  className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs"
+                />
+                <p className="text-[10px] text-slate-400 font-medium mt-1">
+                  {editingUser
+                    ? 'Laissez vide pour ne pas modifier le mot de passe.'
+                    : 'Ce mot de passe permettra à cet acteur de se connecter à la plateforme.'}
+                </p>
               </div>
 
               {/* Photo / Avatar de l'acteur */}

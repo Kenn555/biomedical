@@ -21,6 +21,7 @@ import {
   X
 } from 'lucide-react';
 import { getRoleLabel } from './Header';
+import { can, isRole } from '../lib/permissions';
 
 interface TicketListProps {
   tickets: IncidentTicket[];
@@ -230,14 +231,16 @@ export const TicketList: React.FC<TicketListProps> = ({
             </button>
           )}
 
-          <button
-            onClick={onOpenCreateTicket}
-            className="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap"
-            title="Nouveau signalement d'incident / Créer un ticket"
-          >
-            <PlusCircle className="w-4 h-4 shrink-0" />
-            <span>Nouveau Signalement</span>
-          </button>
+          {can(currentUser, 'canReportIncident') && (
+            <button
+              onClick={onOpenCreateTicket}
+              className="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap"
+              title="Nouveau signalement d'incident / Créer un ticket"
+            >
+              <PlusCircle className="w-4 h-4 shrink-0" />
+              <span>Nouveau Signalement</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -412,76 +415,86 @@ export const TicketList: React.FC<TicketListProps> = ({
                       {/* Right: Actions & Assignment Controls */}
                       <div className="bg-white p-4 rounded-xl border border-slate-200/80 space-y-3.5 flex flex-col justify-between">
                         <div className="space-y-3">
-                          {/* Assignment Picker */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                              Technicien Assigné
-                            </label>
-                            <div className="flex items-center space-x-2">
-                              <User className="w-4 h-4 text-slate-400 shrink-0" />
+                          {/* Assignment Picker (réservé gestion) */}
+                          {isRole(currentUser, ['admin', 'engineer', 'manager']) && (
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Technicien Assigné
+                              </label>
+                              <div className="flex items-center space-x-2">
+                                <User className="w-4 h-4 text-slate-400 shrink-0" />
+                                <select
+                                  value={ticket.assignedTo?.id || ''}
+                                  onChange={(e) => onAssignTicket(ticket.id, e.target.value)}
+                                  className="bg-slate-50 text-xs font-semibold text-slate-800 border-none rounded-lg px-2 py-1.5 w-full focus:outline-none cursor-pointer"
+                                >
+                                  <option value="">-- Non assigné --</option>
+                                  {technicians.map((tech) => (
+                                    <option key={tech.id} value={tech.id}>
+                                      {tech.name} ({getRoleLabel(tech.role)})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Workflow Status Selector (rôles maintenance) */}
+                          {isRole(currentUser, ['admin', 'engineer', 'technician', 'manager', 'vendor']) && (
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Statut de Traitement
+                              </label>
                               <select
-                                value={ticket.assignedTo?.id || ''}
-                                onChange={(e) => onAssignTicket(ticket.id, e.target.value)}
-                                className="bg-slate-50 text-xs font-semibold text-slate-800 border-none rounded-lg px-2 py-1.5 w-full focus:outline-none cursor-pointer"
+                                value={ticket.status}
+                                onChange={(e) => onUpdateStatus(ticket.id, e.target.value as TicketStatus)}
+                                className="bg-slate-50 text-xs font-bold text-emerald-700 border-none rounded-lg px-2.5 py-1.5 w-full focus:outline-none cursor-pointer"
                               >
-                                <option value="">-- Non assigné --</option>
-                                {technicians.map((tech) => (
-                                  <option key={tech.id} value={tech.id}>
-                                    {tech.name} ({getRoleLabel(tech.role)})
-                                  </option>
-                                ))}
+                                <option value="new">Nouveau / Signalé</option>
+                                <option value="diagnosed">Diagnostiqué</option>
+                                <option value="in_progress">Intervention en Cours</option>
+                                <option value="waiting_part">Attente Pièce Détachée</option>
+                                <option value="resolved">Résolu (Test Réussi)</option>
+                                <option value="validated">Validé par Ingénieur</option>
                               </select>
                             </div>
-                          </div>
-
-                          {/* Workflow Status Selector */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                              Statut de Traitement
-                            </label>
-                            <select
-                              value={ticket.status}
-                              onChange={(e) => onUpdateStatus(ticket.id, e.target.value as TicketStatus)}
-                              className="bg-slate-50 text-xs font-bold text-emerald-700 border-none rounded-lg px-2.5 py-1.5 w-full focus:outline-none cursor-pointer"
-                            >
-                              <option value="new">Nouveau / Signalé</option>
-                              <option value="diagnosed">Diagnostiqué</option>
-                              <option value="in_progress">Intervention en Cours</option>
-                              <option value="waiting_part">Attente Pièce Détachée</option>
-                              <option value="resolved">Résolu (Test Réussi)</option>
-                              <option value="validated">Validé par Ingénieur</option>
-                            </select>
-                          </div>
+                          )}
                         </div>
 
                         {/* Action Buttons */}
                         <div className="space-y-2 pt-2 border-t border-slate-100">
-                          <button
-                            onClick={() => onOpenDiagnostic(ticket)}
-                            className="w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
-                            title="Lancer le guide de diagnostic technique & Arbre de décision"
-                          >
-                            <Wrench className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>Guide & Diagnostic Technique</span>
-                          </button>
+                          {can(currentUser, 'canRunDiagnostic') && (
+                            <button
+                              onClick={() => onOpenDiagnostic(ticket)}
+                              className="w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
+                              title="Lancer le guide de diagnostic technique & Arbre de décision"
+                            >
+                              <Wrench className="w-4 h-4 text-emerald-400 shrink-0" />
+                              <span>Guide & Diagnostic Technique</span>
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => onOpenTeleSession(ticket)}
-                            className="w-full bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 p-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
-                            title="Démarrer la session de Télé-Assistance vidéo directe"
-                          >
-                            <Video className="w-4 h-4 text-sky-600 shrink-0" />
-                            <span>Télé-Assistance Directe</span>
-                          </button>
+                          {can(currentUser, 'canRunDiagnostic') && (
+                            <button
+                              onClick={() => onOpenTeleSession(ticket)}
+                              className="w-full bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 p-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                              title="Démarrer la session de Télé-Assistance vidéo directe"
+                            >
+                              <Video className="w-4 h-4 text-sky-600 shrink-0" />
+                              <span>Télé-Assistance Directe</span>
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => onOpenInterventionReport(ticket)}
-                            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 p-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
-                            title="Saisir le rapport d'intervention et le PV de clôture"
-                          >
-                            <FileCheck className="w-4 h-4 text-amber-600 shrink-0" />
-                            <span>Rapport & Fiche d'Intervention</span>
-                          </button>
+                          {can(currentUser, 'canCloseIntervention') && (
+                            <button
+                              onClick={() => onOpenInterventionReport(ticket)}
+                              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 p-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                              title="Saisir le rapport d'intervention et le PV de clôture"
+                            >
+                              <FileCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span>Rapport & Fiche d'Intervention</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

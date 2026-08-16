@@ -1,5 +1,6 @@
 import React from 'react';
-import { Equipment } from '../types';
+import { Equipment, UserProfile } from '../types';
+import { can } from '../lib/permissions';
 import {
   X,
   Battery,
@@ -20,6 +21,7 @@ import { getCategoryLabel, EquipmentThumb } from './EquipmentCard';
 
 interface EquipmentModalProps {
   equipment: Equipment | null;
+  currentUser?: UserProfile;
   onClose: () => void;
   onOpenDiagnostic: (equipment: Equipment) => void;
   onOpenTeleSession: (equipment: Equipment) => void;
@@ -28,6 +30,7 @@ interface EquipmentModalProps {
 
 export const EquipmentModal: React.FC<EquipmentModalProps> = ({
   equipment,
+  currentUser,
   onClose,
   onOpenDiagnostic,
   onOpenTeleSession,
@@ -129,16 +132,18 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
                   <h4 className="font-bold text-rose-900 text-sm">
                     Code d'Erreur : {equipment.telemetry.errorCode}
                   </h4>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onOpenDiagnostic(equipment);
-                    }}
-                    className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer shadow-xs"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Lancer un Diagnostic</span>
-                  </button>
+                  {can(currentUser, 'canRunDiagnostic') && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenDiagnostic(equipment);
+                      }}
+                      className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Lancer un Diagnostic</span>
+                    </button>
+                  )}
                 </div>
                 <p className="text-slate-700 mt-1">{equipment.telemetry.errorDescription}</p>
               </div>
@@ -233,38 +238,44 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
 
         {/* Modal Footer Actions */}
         <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
-          <button
-            onClick={() => {
-              onClose();
-              onOpenDiagnostic(equipment);
-            }}
-            className="bg-slate-900 hover:bg-slate-800 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>Ouvrir la Suite de Diagnostic</span>
-          </button>
+          {can(currentUser, 'canRunDiagnostic') && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenDiagnostic(equipment);
+              }}
+              className="bg-slate-900 hover:bg-slate-800 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <span>Ouvrir la Suite de Diagnostic</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              onClose();
-              onOpenTeleSession(equipment);
-            }}
-            className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
-          >
-            <Video className="w-4 h-4 text-sky-600" />
-            <span>Télé-Assistance Directe</span>
-          </button>
+          {can(currentUser, 'canRunDiagnostic') && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenTeleSession(equipment);
+              }}
+              className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
+            >
+              <Video className="w-4 h-4 text-sky-600" />
+              <span>Télé-Assistance Directe</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              onClose();
-              onReportIncident(equipment);
-            }}
-            className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
-          >
-            <AlertTriangle className="w-4 h-4" />
-            <span>Signaler Panne</span>
-          </button>
+          {can(currentUser, 'canReportIncident') && (
+            <button
+              onClick={() => {
+                onClose();
+                onReportIncident(equipment);
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              <span>Signaler Panne</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Equipment, EquipmentCategory, EquipmentStatus } from '../types';
+import { Equipment, EquipmentCategory, EquipmentStatus, UserProfile } from '../types';
 import { EquipmentCard } from './EquipmentCard';
 import { Search, Filter, Activity, AlertTriangle, CheckCircle, Wrench, RefreshCw, Plus, X } from 'lucide-react';
 
 interface EquipmentListProps {
   equipmentList: Equipment[];
   selectedFacility: string;
+  currentUser?: UserProfile;
   onViewDetails: (equipment: Equipment) => void;
   onOpenDiagnostic: (equipment: Equipment) => void;
   onOpenTeleSession: (equipment: Equipment) => void;
@@ -16,6 +17,7 @@ interface EquipmentListProps {
 export const EquipmentList: React.FC<EquipmentListProps> = ({
   equipmentList,
   selectedFacility,
+  currentUser,
   onViewDetails,
   onOpenDiagnostic,
   onOpenTeleSession,
@@ -200,6 +202,7 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
             <EquipmentCard
               key={eq.id}
               equipment={eq}
+              currentUser={currentUser}
               onViewDetails={onViewDetails}
               onOpenDiagnostic={onOpenDiagnostic}
               onOpenTeleSession={onOpenTeleSession}

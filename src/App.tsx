@@ -31,6 +31,7 @@ import { ToastContainer, Toast } from './components/ToastContainer';
 import { OfflineBanner } from './components/OfflineBanner';
 import { LoginScreen } from './components/LoginScreen';
 import { AppLoader, TabSkeleton, TopProgressBar } from './components/Loading';
+import { ShieldCheck } from 'lucide-react';
 
 // Onglets chargés à la demande (code-splitting) : le bundle initial est plus
 // léger (Recharts notamment n'est chargé qu'avec l'onglet Supervision).
@@ -52,6 +53,7 @@ import {
   PendingSyncAction
 } from './lib/offlineStorage';
 import { api, loadAllData } from './lib/api';
+import { can } from './lib/permissions';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile>(
@@ -491,10 +493,10 @@ export default function App() {
   };
 
   // Users CRUD (synchronisé avec le backend ; fallback local si hors-ligne)
-  const handleAddUser = async (newUser: UserProfile) => {
+  const handleAddUser = async (newUser: UserProfile, password?: string) => {
     if (isOnline && !isSimulatedOffline) {
       try {
-        const serverUser = await api.createUser(newUser);
+        const serverUser = await api.createUser(newUser, password);
         setUsers([...users, serverUser]);
         logAuditAction('Création Acteur', `Utilisateur ${serverUser.name}`, `Rôle ${serverUser.role}`);
         return;
@@ -513,7 +515,7 @@ export default function App() {
     }
   };
 
-  const handleUpdateUser = async (updatedUser: UserProfile) => {
+  const handleUpdateUser = async (updatedUser: UserProfile, password?: string) => {
     setUsers(users.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
     if (currentUser.id === updatedUser.id) {
       setCurrentUser(updatedUser);
@@ -521,7 +523,7 @@ export default function App() {
     logAuditAction('Modification Acteur', `Utilisateur ${updatedUser.name}`, `Mis à jour permissions/infos`);
     if (isOnline && !isSimulatedOffline) {
       try {
-        const serverUser = await api.updateUser(updatedUser.id, updatedUser);
+        const serverUser = await api.updateUser(updatedUser.id, updatedUser, password);
         setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? serverUser : u)));
       } catch {
         addToast(
@@ -636,7 +638,7 @@ export default function App() {
     setIsAuthenticated(true);
     setIsLoading(true);
     try {
-      const data = await loadAllData();
+      const data = await loadAllData(user);
       setUsers(data.users);
       setEquipmentList(data.equipment);
       setTickets(data.tickets);
@@ -692,7 +694,7 @@ export default function App() {
     }
     setIsAuthenticated(false);
     setCurrentUser(MOCK_USERS.find((u) => u.role === 'admin') || MOCK_USERS[0]);
-  };
+  };
 
   const pendingTicketsCount = tickets.filter((t) => t.status !== 'validated' && t.status !== 'resolved').length;
 
@@ -763,7 +765,8 @@ export default function App() {
               setSelectedEquipmentForModal(null);
               setIsReportModalOpen(true);
             }}
-            onAddNewEquipment={currentUser.role === 'admin' || currentUser.role === 'engineer' ? () => setActiveTab('admin') : undefined}
+            onAddNewEquipment={can(currentUser, 'canManageEquipment') ? () => setActiveTab('admin') : undefined}
+            currentUser={currentUser}
           />
         )}
 
@@ -799,6 +802,7 @@ export default function App() {
           <KnowledgeBase
             articles={knowledgeArticles}
             onAddArticle={handleAddKnowledgeArticle}
+            canWrite={currentUser.role === 'admin' || currentUser.role === 'engineer'}
           />
         )}
 
@@ -817,6 +821,7 @@ export default function App() {
             tickets={tickets}
             facilities={facilities}
             selectedFacility={selectedFacility}
+            currentUser={currentUser}
             onSelectFacility={setSelectedFacility}
             onOpenDiagnostic={(tkt) => {
               const eq = equipmentList.find((e) => e.id === tkt.equipmentId);
@@ -829,26 +834,37 @@ export default function App() {
           />
         )}
 
-        {/* TAB 5: Admin & Audit */}
-        {activeTab === 'admin' && (
-          <AdminUsersAudit
-            users={users}
-            auditLogs={auditLogs}
-            equipmentList={equipmentList}
-            onAddUser={handleAddUser}
-            onUpdateUser={handleUpdateUser}
-            onDeleteUser={handleDeleteUser}
-            onAddEquipment={handleAddEquipment}
-            onUpdateEquipment={handleUpdateEquipment}
-            onDeleteEquipment={handleDeleteEquipment}
-          />
-        )}
+        {/* TAB 5: Admin & Audit (réservé admin / gestion parc) */}
+        {activeTab === 'admin' &&
+          (can(currentUser, 'canManageUsers') || can(currentUser, 'canManageEquipment') ? (
+            <AdminUsersAudit
+              users={users}
+              auditLogs={auditLogs}
+              equipmentList={equipmentList}
+              canManageUsers={can(currentUser, 'canManageUsers')}
+              onAddUser={handleAddUser}
+              onUpdateUser={handleUpdateUser}
+              onDeleteUser={handleDeleteUser}
+              onAddEquipment={handleAddEquipment}
+              onUpdateEquipment={handleUpdateEquipment}
+              onDeleteEquipment={handleDeleteEquipment}
+            />
+          ) : (
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-8 text-center shadow-sm">
+              <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <h3 className="text-sm font-bold text-slate-800">Accès refusé</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Vous ne disposez pas des droits nécessaires pour accéder à l'administration.
+              </p>
+            </div>
+          ))}
         </Suspense>
       </main>
 
       {/* Modals & Slide-Out Drawers */}
       <EquipmentModal
         equipment={selectedEquipmentForModal}
+        currentUser={currentUser}
         onClose={() => setSelectedEquipmentForModal(null)}
         onOpenDiagnostic={(eq) => setSelectedEquipmentForDiag(eq)}
         onOpenTeleSession={(eq) => setSelectedEquipmentForTeleSession(eq)}

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Equipment, EquipmentCategory, EquipmentStatus } from '../types';
+import { Equipment, EquipmentCategory, EquipmentStatus, UserProfile } from '../types';
+import { can } from '../lib/permissions';
 import {
   Battery,
   Wifi,
@@ -14,6 +15,7 @@ import {
 
 interface EquipmentCardProps {
   equipment: Equipment;
+  currentUser?: UserProfile;
   onViewDetails: (equipment: Equipment) => void;
   onOpenDiagnostic: (equipment: Equipment) => void;
   onOpenTeleSession: (equipment: Equipment) => void;
@@ -22,6 +24,7 @@ interface EquipmentCardProps {
 
 export const EquipmentCard: React.FC<EquipmentCardProps> = ({
   equipment,
+  currentUser,
   onViewDetails,
   onOpenDiagnostic,
   onOpenTeleSession,
@@ -171,30 +174,36 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({
           <span className="truncate">Fiche & Télémétrie</span>
         </button>
 
-        <button
-          onClick={() => onOpenDiagnostic(equipment)}
-          className="bg-slate-900 hover:bg-slate-800 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center space-x-1 cursor-pointer shadow-xs"
-          title="Lancer le diagnostic technique & Arbre de décision"
-        >
-          <Wrench className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span>Diagnostic</span>
-        </button>
+        {can(currentUser, 'canRunDiagnostic') && (
+          <button
+            onClick={() => onOpenDiagnostic(equipment)}
+            className="bg-slate-900 hover:bg-slate-800 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center space-x-1 cursor-pointer shadow-xs"
+            title="Lancer le diagnostic technique & Arbre de décision"
+          >
+            <Wrench className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Diagnostic</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => onOpenTeleSession(equipment)}
-          className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold transition-colors flex items-center justify-center cursor-pointer"
-          title="Session Télé-Assistance Vidéo en Direct"
-        >
-          <Video className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-        </button>
+        {can(currentUser, 'canRunDiagnostic') && (
+          <button
+            onClick={() => onOpenTeleSession(equipment)}
+            className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold transition-colors flex items-center justify-center cursor-pointer"
+            title="Session Télé-Assistance Vidéo en Direct"
+          >
+            <Video className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+          </button>
+        )}
 
-        <button
-          onClick={() => onReportIncident(equipment)}
-          className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold transition-colors flex items-center justify-center cursor-pointer"
-          title="Signaler une panne ou un problème"
-        >
-          <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-        </button>
+        {can(currentUser, 'canReportIncident') && (
+          <button
+            onClick={() => onReportIncident(equipment)}
+            className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold transition-colors flex items-center justify-center cursor-pointer"
+            title="Signaler une panne ou un problème"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+          </button>
+        )}
       </div>
     </div>
   );

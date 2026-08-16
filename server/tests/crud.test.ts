@@ -398,6 +398,182 @@ async function testRbac(admin: CookieJar): Promise<void> {
   check('nettoyage ticket RBAC → 200', del.status === 200);
 }
 
+async function testGranularPermissions(admin: CookieJar): Promise<void> {
+  console.log('\n▶ Permissions fines (RBAC par utilisateur)');
+
+  // 1. Ingénieur privé de la gestion du parc et de la clôture d'intervention
+  const engRestricted = await api('POST', '/users', admin, {
+    name: 'Ingénieur Restreint',
+    email: 'eng.restreint@sante.mg',
+    role: 'engineer',
+    title: 'Ingénieur Test',
+    facility: 'Poste de Test',
+    permissions: {
+      canReportIncident: true,
+      canRunDiagnostic: true,
+      canCloseIntervention: false,
+      canManageEquipment: false,
+      canManageUsers: false,
+    },
+  });
+  check('création ingénieur restreint → 200', engRestricted.status === 200);
+  const engJar = await loginAs('eng.restreint@sante.mg', PASSWORD);
+  check('login ingénieur restreint → session', engJar !== null);
+  if (engJar) {
+    const eq = await api('POST', '/equipment', engJar, { code: 'EQ-X', name: 'X', category: 'moniteur' });
+    check('ingénieur sans canManageEquipment POST /equipment → 403', eq.status === 403);
+
+    const rep = await api('POST', '/reports', engJar, {
+      ticketId: 'tkt-01',
+      equipmentId: 'eq-02',
+      technicianName: 'Test',
+      problemFound: 'x',
+      actionsPerformed: [],
+      replacedParts: [],
+      electricalSafetyTestPassed: true,
+      calibrationPerformed: true,
+      finalStatus: 'operational',
+      notes: 'x',
+      signedByTechnician: true,
+      validatedByEngineer: false,
+    });
+    check('ingénieur sans canCloseIntervention POST /reports → 403', rep.status === 403);
+
+    const diag = await api('POST', '/ai/diagnose', engJar, { equipmentName: 'Moniteur', model: 'MX', brand: 'P', symptoms: [] });
+    check('ingénieur canRunDiagnostic POST /ai/diagnose → 200', diag.status === 200);
+  }
+
+  // 2. Technicien privé du signalement d'incidents
+  const techRestricted = await api('POST', '/users', admin, {
+    name: 'Technicien Restreint',
+    email: 'tech.restreint@sante.mg',
+    role: 'technician',
+    title: 'Technicien Test',
+    facility: 'Poste de Test',
+    permissions: {
+      canReportIncident: false,
+      canRunDiagnostic: true,
+      canCloseIntervention: true,
+      canManageEquipment: false,
+      canManageUsers: false,
+    },
+  });
+  check('création technicien restreint → 200', techRestricted.status === 200);
+  const techJar = await loginAs('tech.restreint@sante.mg', PASSWORD);
+  check('login technicien restreint → session', techJar !== null);
+  if (techJar) {
+    const tkt = await api('POST', '/tickets', techJar, { equipmentId: 'eq-02', description: 'x', symptoms: ['Test'], urgency: 'low' });
+    check('technicien sans canReportIncident POST /tickets → 403', tkt.status === 403);
+
+    const diag = await api('POST', '/ai/diagnose', techJar, { equipmentName: 'Moniteur', model: 'MX', brand: 'P', symptoms: [] });
+    check('technicien canRunDiagnostic POST /ai/diagnose → 200', diag.status === 200);
+
+    const audit = await api('GET', '/audit', techJar);
+    check('technicien GET /audit → 403 (réservé admin)', audit.status === 403);
+  }
+
+  // 3. Médecin : peut signaler, mais ni affecter ni changer le statut
+  const doctor = await loginAs('m.heriniaina@sante.mg', PASSWORD);
+  check('login médecin → session', doctor !== null);
+  if (doctor) {
+    const asg = await api('PUT', '/tickets/tkt-01/assign', doctor, { userId: 'usr-tech-01' });
+    check('médecin PUT /tickets/:id/assign → 403', asg.status === 403);
+
+    const st = await api('PUT', '/tickets/tkt-01/status', doctor, { status: 'in_progress' });
+    check('médecin PUT /tickets/:id/status → 403', st.status === 403);
+
+    const tkt = await api('POST', '/tickets', doctor, { equipmentId: 'eq-02', description: 'Signalement médecin', symptoms: ['Test'], urgency: 'low' });
+    check('médecin POST /tickets → 200', tkt.status === 200);
+  }
+
+  // 4. Technicien : changement de statut autorisé, validation finale réservée ingénieur
+  const tech = await loginAs(TECH_EMAIL, PASSWORD);
+  if (tech) {
+    const st = await api('PUT', '/tickets/tkt-01/status', tech, { status: 'in_progress' });
+    check('technicien PUT /tickets/:id/status → 200', st.status === 200);
+
+    const val = await api('PUT', '/tickets/tkt-01/status', tech, { status: 'validated' });
+    check('technicien PUT /tickets/:id/status validated → 403', val.status === 403);
+  }
+
+  // Nettoyage des comptes de test
+  const usersList = await api('GET', '/users', admin);
+  const created = (usersList.data?.users as any[] || []).filter(
+    (u: any) => u.email === 'eng.restreint@sante.mg' || u.email === 'tech.restreint@sante.mg'
+  );
+  for (const u of created) {
+    await api('DELETE', `/users/${u.id}`, admin);
+  }
+}
+
+async function testUserPasswords(admin: CookieJar): Promise<void> {
+  console.log('\n▶ Mot de passe des acteurs (création / modification)');
+
+  // 1. Création avec mot de passe personnalisé → login avec ce mot de passe
+  const created = await api('POST', '/users', admin, {
+    name: 'Acteur Mot de Passe',
+    email: 'mdp.acteur@sante.mg',
+    role: 'technician',
+    title: 'Technicien Test',
+    facility: 'Poste de Test',
+    password: 'mdp-super-secret-42',
+  });
+  check('création acteur avec mot de passe → 200', created.status === 200);
+
+  const jar = await loginAs('mdp.acteur@sante.mg', 'mdp-super-secret-42');
+  check('login avec le mot de passe personnalisé → session', jar !== null);
+
+  // L'ancien mot de passe par défaut ne doit plus fonctionner
+  const jarDefault = await loginAs('mdp.acteur@sante.mg', PASSWORD);
+  check('login avec l\'ancien mot de passe par défaut → refusé', jarDefault === null);
+
+  // 2. Création SANS mot de passe → mot de passe par défaut conservé
+  const createdNoPw = await api('POST', '/users', admin, {
+    name: 'Acteur Sans Mot de Passe',
+    email: 'mdp.vide@sante.mg',
+    role: 'nurse',
+    title: 'Infirmier Test',
+    facility: 'Poste de Test',
+  });
+  check('création acteur sans mot de passe → 200', createdNoPw.status === 200);
+  const jarNoPw = await loginAs('mdp.vide@sante.mg', PASSWORD);
+  check('login avec le mot de passe par défaut → session', jarNoPw !== null);
+
+  // 3. Modification : changement de mot de passe
+  const userId = (created.data?.user as any)?.id;
+  check('id acteur retourné', !!userId);
+  if (userId) {
+    const updated = await api('PUT', `/users/${userId}`, admin, {
+      title: 'Technicien Senior',
+      password: 'nouveau-mdp-99',
+    });
+    check('modification acteur avec nouveau mot de passe → 200', updated.status === 200);
+
+    const jarNew = await loginAs('mdp.acteur@sante.mg', 'nouveau-mdp-99');
+    check('login avec le nouveau mot de passe → session', jarNew !== null);
+
+    const jarOld = await loginAs('mdp.acteur@sante.mg', 'mdp-super-secret-42');
+    check('login avec l\'ancien mot de passe → refusé', jarOld === null);
+  }
+
+  // 4. Modification SANS mot de passe → mot de passe inchangé
+  if (userId) {
+    const updatedNoPw = await api('PUT', `/users/${userId}`, admin, { title: 'Technicien Confirmé' });
+    check('modification sans mot de passe → 200', updatedNoPw.status === 200);
+    const jarStill = await loginAs('mdp.acteur@sante.mg', 'nouveau-mdp-99');
+    check('mot de passe conservé après modification sans champ password', jarStill !== null);
+  }
+
+  // Nettoyage des comptes de test
+  const usersList = await api('GET', '/users', admin);
+  const createdUsers = (usersList.data?.users as any[] || []).filter(
+    (u: any) => u.email === 'mdp.acteur@sante.mg' || u.email === 'mdp.vide@sante.mg'
+  );
+  for (const u of createdUsers) {
+    await api('DELETE', `/users/${u.id}`, admin);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -430,6 +606,8 @@ async function main(): Promise<void> {
       await testAudit(admin);
       await testFacilities(admin);
       await testRbac(admin);
+      await testGranularPermissions(admin);
+      await testUserPasswords(admin);
     }
   } finally {
     await stopTestServer();

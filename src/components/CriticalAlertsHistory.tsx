@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { IncidentTicket, UrgencyLevel } from '../types';
+import { IncidentTicket, UrgencyLevel, UserProfile } from '../types';
+import { can } from '../lib/permissions';
 import {
   BarChart,
   Bar,
@@ -34,6 +35,7 @@ interface CriticalAlertsHistoryProps {
   tickets: IncidentTicket[];
   facilities: string[];
   selectedFacility: string;
+  currentUser?: UserProfile;
   onSelectFacility?: (facility: string) => void;
   onOpenDiagnostic?: (ticket: IncidentTicket) => void;
   onOpenReport?: (ticket: IncidentTicket) => void;
@@ -63,6 +65,7 @@ export const CriticalAlertsHistory: React.FC<CriticalAlertsHistoryProps> = ({
   tickets,
   facilities,
   selectedFacility,
+  currentUser,
   onSelectFacility,
   onOpenDiagnostic,
   onOpenReport,
@@ -691,7 +694,7 @@ export const CriticalAlertsHistory: React.FC<CriticalAlertsHistoryProps> = ({
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        {onOpenDiagnostic && (
+                        {onOpenDiagnostic && can(currentUser, 'canRunDiagnostic') && (
                           <button
                             onClick={() => onOpenDiagnostic(ticket)}
                             className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold text-[11px] rounded-lg cursor-pointer transition-colors flex items-center space-x-1"
@@ -700,7 +703,7 @@ export const CriticalAlertsHistory: React.FC<CriticalAlertsHistoryProps> = ({
                             <span>Diagnostic</span>
                           </button>
                         )}
-                        {onOpenReport && (
+                        {onOpenReport && can(currentUser, 'canCloseIntervention') && (
                           <button
                             onClick={() => onOpenReport(ticket)}
                             className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg cursor-pointer transition-colors flex items-center space-x-1"

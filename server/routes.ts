@@ -18,6 +18,7 @@ import {
   parseCookies,
   requireAuth,
   requireRole,
+  requirePermission,
   sessionCookie,
   clearSessionCookie,
   AuthUser,
@@ -98,31 +99,37 @@ apiRouter.get('/users', requireAuth, (req, res) => {
   ok(res, { users: listAll('users') });
 });
 
-apiRouter.post('/users', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.post('/users', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const data = req.body || {};
   if (!data.name || !data.email) {
     return res.status(400).json({ error: 'Nom et email requis.' });
   }
   const existing = findBy('users', 'email', data.email);
   if (existing) return res.status(409).json({ error: 'Un utilisateur avec cet email existe déjà.' });
+  const { password, ...profile } = data;
   const defaultPassword = process.env.DEFAULT_PASSWORD || 'biomed123';
-  const user = insertRow('users', { id: `usr-${Date.now()}`, ...data, password_hash: hashPassword(defaultPassword) });
+  const chosenPassword = typeof password === 'string' && password.trim() ? password : defaultPassword;
+  const user = insertRow('users', { id: `usr-${Date.now()}`, ...profile, password_hash: hashPassword(chosenPassword) });
   delete (user as Record<string, unknown>).password_hash;
   logAudit(req, 'Création Acteur', `Utilisateur ${user.name}`, `Rôle ${user.role}`);
   ok(res, { user });
 });
 
-apiRouter.put('/users/:id', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.put('/users/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const existing = getById('users', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Utilisateur introuvable.' });
-  const { password_hash: _pw, ...clean } = req.body || {};
-  const user = updateRow('users', req.params.id, clean);
+  const { password_hash: _pw, password, ...clean } = req.body || {};
+  const withNewPassword =
+    typeof password === 'string' && password.trim()
+      ? { ...clean, password_hash: hashPassword(password) }
+      : clean;
+  const user = updateRow('users', req.params.id, withNewPassword);
   delete (user as Record<string, unknown>).password_hash;
   logAudit(req, 'Modification Acteur', `Utilisateur ${user?.name}`, 'Mise à jour profil/permissions');
   ok(res, { user });
 });
 
-apiRouter.delete('/users/:id', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.delete('/users/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const existing = getById('users', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Utilisateur introuvable.' });
   if (existing.id === getAuthedUser(req).id) {
@@ -140,7 +147,7 @@ apiRouter.get('/equipment', requireAuth, (req, res) => {
   ok(res, { equipment: listAll('equipment') });
 });
 
-apiRouter.post('/equipment', requireAuth, requireRole('admin', 'engineer'), (req, res) => {
+apiRouter.post('/equipment', requireAuth, requirePermission('canManageEquipment'), (req, res) => {
   const data = req.body || {};
   if (!data.name || !data.code) return res.status(400).json({ error: 'Nom et code requis.' });
   const eq = insertRow('equipment', { id: `eq-${Date.now()}`, ...data });
@@ -148,7 +155,7 @@ apiRouter.post('/equipment', requireAuth, requireRole('admin', 'engineer'), (req
   ok(res, { equipment: eq });
 });
 
-apiRouter.put('/equipment/:id', requireAuth, requireRole('admin', 'engineer'), (req, res) => {
+apiRouter.put('/equipment/:id', requireAuth, requirePermission('canManageEquipment'), (req, res) => {
   const existing = getById('equipment', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Équipement introuvable.' });
   const eq = updateRow('equipment', req.params.id, req.body || {});
@@ -156,7 +163,7 @@ apiRouter.put('/equipment/:id', requireAuth, requireRole('admin', 'engineer'), (
   ok(res, { equipment: eq });
 });
 
-apiRouter.delete('/equipment/:id', requireAuth, requireRole('admin', 'engineer'), (req, res) => {
+apiRouter.delete('/equipment/:id', requireAuth, requirePermission('canManageEquipment'), (req, res) => {
   const existing = getById('equipment', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Équipement introuvable.' });
   deleteRow('equipment', req.params.id);
@@ -171,7 +178,7 @@ apiRouter.get('/tickets', requireAuth, (req, res) => {
   ok(res, { tickets: listAll('tickets') });
 });
 
-apiRouter.post('/tickets', requireAuth, (req, res) => {
+apiRouter.post('/tickets', requireAuth, requirePermission('canReportIncident'), (req, res) => {
   const { equipmentId, description, symptoms, urgency, errorCode } = req.body || {};
   const eq = equipmentId ? getById('equipment', equipmentId) : null;
   if (!eq) return res.status(400).json({ error: 'Équipement introuvable.' });
@@ -221,7 +228,7 @@ apiRouter.post('/tickets', requireAuth, (req, res) => {
   ok(res, { ticket: created });
 });
 
-apiRouter.put('/tickets/:id/assign', requireAuth, (req, res) => {
+apiRouter.put('/tickets/:id/assign', requireAuth, requireRole('admin', 'engineer', 'manager'), (req, res) => {
   const ticket = getById('tickets', req.params.id);
   if (!ticket) return res.status(404).json({ error: 'Ticket introuvable.' });
   const { userId } = req.body || {};
@@ -241,11 +248,16 @@ apiRouter.put('/tickets/:id/assign', requireAuth, (req, res) => {
   ok(res, { ticket: updated });
 });
 
-apiRouter.put('/tickets/:id/status', requireAuth, (req, res) => {
+apiRouter.put('/tickets/:id/status', requireAuth, requireRole('admin', 'engineer', 'technician', 'manager', 'vendor'), (req, res) => {
   const ticket = getById('tickets', req.params.id);
   if (!ticket) return res.status(404).json({ error: 'Ticket introuvable.' });
   const { status } = req.body || {};
   if (!status) return res.status(400).json({ error: 'Statut requis.' });
+
+  // La validation finale ("Validé par Ingénieur") exige un rôle ingénieur/admin
+  if (status === 'validated' && !['admin', 'engineer'].includes(getAuthedUser(req).role)) {
+    return res.status(403).json({ error: 'Accès refusé : la validation finale exige un rôle Ingénieur ou Administrateur.' });
+  }
 
   const updated = updateRow('tickets', req.params.id, {
     status,
@@ -270,7 +282,7 @@ apiRouter.put('/tickets/:id/status', requireAuth, (req, res) => {
   ok(res, { ticket: updated });
 });
 
-apiRouter.delete('/tickets/:id', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.delete('/tickets/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const existing = getById('tickets', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Ticket introuvable.' });
   deleteRow('tickets', req.params.id);
@@ -325,7 +337,7 @@ apiRouter.get('/reports', requireAuth, (req, res) => {
   ok(res, { reports: listAll('reports') });
 });
 
-apiRouter.post('/reports', requireAuth, (req, res) => {
+apiRouter.post('/reports', requireAuth, requirePermission('canCloseIntervention'), (req, res) => {
   const data = req.body || {};
   const report = insertRow('reports', { id: `rep-${Date.now()}`, ...data });
 
@@ -378,7 +390,7 @@ apiRouter.delete('/reports/:id', requireAuth, requireRole('admin'), (req, res) =
 // ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------
-apiRouter.get('/audit', requireAuth, (req, res) => {
+apiRouter.get('/audit', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   ok(res, { logs: listAll('audit') });
 });
 
@@ -389,7 +401,7 @@ apiRouter.post('/audit', requireAuth, (req, res) => {
   ok(res, {});
 });
 
-apiRouter.delete('/audit/:id', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.delete('/audit/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const existing = getById('audit', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Entrée d\'audit introuvable.' });
   deleteRow('audit', req.params.id);
@@ -403,7 +415,7 @@ apiRouter.get('/facilities', requireAuth, (req, res) => {
   ok(res, { facilities: listAll('facilities').map((f) => f.name) });
 });
 
-apiRouter.post('/facilities', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.post('/facilities', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const { name } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: 'Nom requis.' });
   const existing = findBy('facilities', 'name', String(name).trim());
@@ -413,7 +425,7 @@ apiRouter.post('/facilities', requireAuth, requireRole('admin'), (req, res) => {
   ok(res, { facility });
 });
 
-apiRouter.put('/facilities/:id', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.put('/facilities/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const existing = getById('facilities', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Établissement introuvable.' });
   const { name } = req.body || {};
@@ -423,7 +435,7 @@ apiRouter.put('/facilities/:id', requireAuth, requireRole('admin'), (req, res) =
   ok(res, { facility });
 });
 
-apiRouter.delete('/facilities/:id', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.delete('/facilities/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const existing = getById('facilities', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Établissement introuvable.' });
   deleteRow('facilities', req.params.id);
@@ -434,7 +446,7 @@ apiRouter.delete('/facilities/:id', requireAuth, requireRole('admin'), (req, res
 // ---------------------------------------------------------------------------
 // Admin utilities
 // ---------------------------------------------------------------------------
-apiRouter.post('/admin/reset-data', requireAuth, requireRole('admin'), (req, res) => {
+apiRouter.post('/admin/reset-data', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   resetDatabase();
   logAudit(req, 'Réinitialisation Données', 'Base de données', 'Données re-seedées depuis le référentiel');
   ok(res, {});
@@ -443,7 +455,7 @@ apiRouter.post('/admin/reset-data', requireAuth, requireRole('admin'), (req, res
 // ---------------------------------------------------------------------------
 // Technical diagnostic endpoints (rule-based)
 // ---------------------------------------------------------------------------
-apiRouter.post('/ai/diagnose', requireAuth, (req, res) => {
+apiRouter.post('/ai/diagnose', requireAuth, requirePermission('canRunDiagnostic'), (req, res) => {
   try {
     const { equipmentName, model, brand, errorCode, errorDescription, symptoms, telemetry } = req.body;
     if (!equipmentName) return res.status(400).json({ error: 'Equipment name is required.' });
@@ -479,7 +491,7 @@ Symptômes Renseignés: ${symStr}
   }
 });
 
-apiRouter.post('/ai/analyze-ticket', requireAuth, (req, res) => {
+apiRouter.post('/ai/analyze-ticket', requireAuth, requirePermission('canRunDiagnostic'), (req, res) => {
   try {
     const { symptoms } = req.body;
     const symList = Array.isArray(symptoms) ? symptoms : [];

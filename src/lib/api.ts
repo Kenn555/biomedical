@@ -8,6 +8,7 @@ import type {
   TicketStatus,
   UrgencyLevel,
 } from '../types';
+import { can } from './permissions';
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
@@ -47,10 +48,16 @@ export const api = {
 
   // --- Users ---
   getUsers: () => apiFetch<{ users: UserProfile[] }>('/api/users').then((d) => d.users),
-  createUser: (user: UserProfile) =>
-    apiFetch<{ user: UserProfile }>('/api/users', { method: 'POST', body: JSON.stringify(user) }).then((d) => d.user),
-  updateUser: (id: string, user: Partial<UserProfile>) =>
-    apiFetch<{ user: UserProfile }>(`/api/users/${id}`, { method: 'PUT', body: JSON.stringify(user) }).then((d) => d.user),
+  createUser: (user: UserProfile, password?: string) =>
+    apiFetch<{ user: UserProfile }>('/api/users', {
+      method: 'POST',
+      body: JSON.stringify(password ? { ...user, password } : user),
+    }).then((d) => d.user),
+  updateUser: (id: string, user: Partial<UserProfile>, password?: string) =>
+    apiFetch<{ user: UserProfile }>(`/api/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(password ? { ...user, password } : user),
+    }).then((d) => d.user),
   deleteUser: (id: string) => apiFetch<{ success: boolean }>(`/api/users/${id}`, { method: 'DELETE' }),
 
   // --- Equipment ---
@@ -144,14 +151,17 @@ export interface BackendData {
   facilities: string[];
 }
 
-export async function loadAllData(): Promise<BackendData> {
+export async function loadAllData(user?: UserProfile | null): Promise<BackendData> {
+  // Le journal d'audit est réservé aux administrateurs : les autres rôles ne
+  // l'appellent même pas (évite un 403 réseau et reste cohérent avec le RBAC).
+  const canReadAudit = can(user, 'canManageUsers');
   const [users, equipment, tickets, knowledge, reports, audit, facilities] = await Promise.all([
     api.getUsers(),
     api.getEquipment(),
     api.getTickets(),
     api.getKnowledge(),
     api.getReports(),
-    api.getAudit(),
+    canReadAudit ? api.getAudit().catch(() => []) : Promise.resolve([] as AuditLog[]),
     api.getFacilities(),
   ]);
   return { users, equipment, tickets, knowledge, reports, audit, facilities };
