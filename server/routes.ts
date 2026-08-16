@@ -179,7 +179,7 @@ apiRouter.get('/tickets', requireAuth, (req, res) => {
 });
 
 apiRouter.post('/tickets', requireAuth, requirePermission('canReportIncident'), (req, res) => {
-  const { equipmentId, description, symptoms, urgency, errorCode } = req.body || {};
+  const { equipmentId, description, symptoms, urgency, errorCode, attachments } = req.body || {};
   const eq = equipmentId ? getById('equipment', equipmentId) : null;
   if (!eq) return res.status(400).json({ error: 'Équipement introuvable.' });
   if (!description && (!symptoms || symptoms.length === 0)) {
@@ -206,6 +206,10 @@ apiRouter.post('/tickets', requireAuth, requirePermission('canReportIncident'), 
     aiDiagnosticSummary: null,
     slaDeadline: new Date(Date.now() + hours * 3600000).toISOString(),
     slaBreached: false,
+    attachments:
+      attachments && (attachments.photoVideo || attachments.voiceMemo)
+        ? { photoVideo: attachments.photoVideo || null, voiceMemo: attachments.voiceMemo || null }
+        : null,
     history: [
       {
         timestamp: new Date().toISOString(),

@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   aiDiagnosticSummary TEXT,
   slaDeadline TEXT,
   slaBreached INTEGER,
+  attachments TEXT,
   history TEXT
 );
 
@@ -172,6 +173,15 @@ function migrateEquipmentImageUrl(): void {
 }
 migrateEquipmentImageUrl();
 
+// Migration : bases existantes créées avant l'ajout de la colonne attachments
+// (photo/vidéo et mémo vocal joints à un ticket).
+function migrateTicketsAttachments(): void {
+  const cols = db.prepare('PRAGMA table_info(tickets)').all() as { name: string }[];
+  if (cols.some((c) => c.name === 'attachments')) return;
+  db.prepare('ALTER TABLE tickets ADD COLUMN attachments TEXT').run();
+}
+migrateTicketsAttachments();
+
 // ---------------------------------------------------------------------------
 // Entity registry (camelCase column names == API field names)
 // ---------------------------------------------------------------------------
@@ -197,7 +207,7 @@ export const ENTITIES: Record<string, EntityDef> = {
   },
   tickets: {
     table: 'tickets',
-    jsonCols: ['reportedBy', 'assignedTo', 'symptoms', 'history'],
+    jsonCols: ['reportedBy', 'assignedTo', 'symptoms', 'history', 'attachments'],
     intCols: ['slaBreached'],
     orderBy: 'reportedAt DESC',
   },

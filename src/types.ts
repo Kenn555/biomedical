@@ -107,6 +107,11 @@ export interface IncidentTicket {
   aiDiagnosticSummary?: string;
   slaDeadline: string;         // ISO timestamp
   slaBreached?: boolean;
+  /** Pièces jointes du signalement : photo/vidéo (data URL) et mémo vocal (audio data URL) */
+  attachments?: {
+    photoVideo?: string;
+    voiceMemo?: string;
+  };
   history: {
     timestamp: string;
     actor: string;

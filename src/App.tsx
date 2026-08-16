@@ -222,6 +222,7 @@ export default function App() {
     symptoms: string[];
     urgency: UrgencyLevel;
     errorCode?: string;
+    attachments?: { photoVideo?: string; voiceMemo?: string };
   }) => {
     const eq = equipmentList.find((e) => e.id === data.equipmentId);
     if (!eq) return;
@@ -295,6 +296,13 @@ export default function App() {
       status: 'new',
       errorCode: data.errorCode || eq.telemetry.errorCode,
       slaDeadline: new Date(Date.now() + hours * 3600000).toISOString(),
+      attachments:
+        data.attachments && (data.attachments.photoVideo || data.attachments.voiceMemo)
+          ? {
+              photoVideo: data.attachments.photoVideo,
+              voiceMemo: data.attachments.voiceMemo,
+            }
+          : undefined,
       history: [
         {
           timestamp: new Date().toISOString(),
@@ -785,9 +793,9 @@ export default function App() {
               }
             }}
             onOpenTeleSession={(tkt) => {
-              const eq = equipmentList.find((e) => e.id === tkt.equipmentId);
+              // Ouvre uniquement la visioconférence (avec le contexte du ticket),
+              // pas la session de télé-maintenance qui s'ouvre depuis les cartes équipement.
               setSelectedTicketForVideoCall(tkt);
-              if (eq) setSelectedEquipmentForTeleSession(eq);
               setIsVideoConferenceOpen(true);
             }}
             onOpenInterventionReport={(tkt) => setSelectedTicketForReport(tkt)}

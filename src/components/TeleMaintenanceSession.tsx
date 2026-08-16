@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Equipment, ChatMessage, UserProfile } from '../types';
 import {
   X,
@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   Zap,
   Users,
-  Bot
+  Bot,
+  Camera
 } from 'lucide-react';
 
 interface TeleMaintenanceSessionProps {
@@ -31,10 +32,50 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
 }) => {
   const [micMuted, setMicMuted] = useState<boolean>(false);
   const [videoOff, setVideoOff] = useState<boolean>(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<{ id: number; x: number; y: number; label: string }[]>([
     { id: 1, x: 45, y: 35, label: 'Vérifier connecteur V1-V3' },
     { id: 2, x: 70, y: 60, label: 'Masse à contrôler' }
   ]);
+
+  // Flux vidéo réel (WebRTC) : caméra + micro de l'utilisateur
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+    if (isOpen && equipment) {
+      setCameraError(null);
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((mediaStream) => {
+          activeStream = mediaStream;
+          streamRef.current = mediaStream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream;
+          }
+        })
+        .catch((err) => {
+          console.warn('WebRTC getUserMedia error:', err);
+          setCameraError(
+            "Caméra ou microphone inaccessible. Veuillez autoriser l'accès dans votre navigateur pour la session vidéo directe."
+          );
+        });
+    }
+    return () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [isOpen, equipment?.id]);
+
+  // Maintient le flux vidéo sur l'élément <video>
+  useEffect(() => {
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [videoOff, micMuted]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'm1',
@@ -72,6 +113,22 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
 
     setChatMessages([...chatMessages, newMsg]);
     setInputText('');
+  };
+
+  const toggleMic = () => {
+    const next = !micMuted;
+    setMicMuted(next);
+    streamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = !next;
+    });
+  };
+
+  const toggleVideo = () => {
+    const next = !videoOff;
+    setVideoOff(next);
+    streamRef.current?.getVideoTracks().forEach((track) => {
+      track.enabled = !next;
+    });
   };
 
   const addAnnotationOnCanvas = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -133,12 +190,21 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  {/* Simulated Device Camera Background */}
-                  <img
-                    src="https://images.unsplash.com/photo-1516549655169-df83a0774514?w=1000&auto=format&fit=crop&q=80"
-                    alt="Vue Équipement Télémédecine"
-                    className="w-full h-full object-cover opacity-60"
-                  />
+                  {/* Flux vidéo réel (caméra de l'utilisateur via WebRTC) */}
+                  {cameraError ? (
+                    <div className="text-center space-y-2 text-amber-300/90 p-6">
+                      <Camera className="w-10 h-10 mx-auto" />
+                      <p className="text-xs font-semibold max-w-xs">{cameraError}</p>
+                    </div>
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                   {/* Grid overlay */}
                   <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none" />
 
@@ -178,7 +244,7 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
             <div className="mt-3 flex items-center justify-between bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl">
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setMicMuted(!micMuted)}
+                  onClick={toggleMic}
                   className={`p-2.5 rounded-xl transition-colors cursor-pointer ${
                     micMuted ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
                   }`}
@@ -188,7 +254,7 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
                 </button>
 
                 <button
-                  onClick={() => setVideoOff(!videoOff)}
+                  onClick={toggleVideo}
                   className={`p-2.5 rounded-xl transition-colors cursor-pointer ${
                     videoOff ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
                   }`}

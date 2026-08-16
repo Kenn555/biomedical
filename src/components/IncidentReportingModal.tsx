@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Equipment, UrgencyLevel, UserProfile } from '../types';
 import {
   X,
@@ -10,7 +10,9 @@ import {
   CheckCircle,
   FileText,
   Activity,
-  Loader2
+  Loader2,
+  Square,
+  Trash2
 } from 'lucide-react';
 
 interface IncidentReportingModalProps {
@@ -25,6 +27,7 @@ interface IncidentReportingModalProps {
     symptoms: string[];
     urgency: UrgencyLevel;
     errorCode?: string;
+    attachments?: { photoVideo?: string; voiceMemo?: string };
   }) => void;
 }
 
@@ -56,8 +59,162 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
   const [urgency, setUrgency] = useState<UrgencyLevel>('high');
   const [isAnalyzingAi, setIsAnalyzingAi] = useState<boolean>(false);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
-  const [audioRecorded, setAudioRecorded] = useState<boolean>(false);
-  const [photoUploaded, setPhotoUploaded] = useState<boolean>(false);
+
+  // --- Pièces jointes : photo/vidéo ---
+  const [photoVideoDataUrl, setPhotoVideoDataUrl] = useState<string | null>(null);
+  const [photoVideoName, setPhotoVideoName] = useState<string>('');
+  const [isPhotoVideo, setIsPhotoVideo] = useState<boolean>(false);
+  const [attachBusy, setAttachBusy] = useState<boolean>(false);
+  const [attachError, setAttachError] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // --- Mémo vocal (MediaRecorder) ---
+  const [voiceMemoDataUrl, setVoiceMemoDataUrl] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recordSeconds, setRecordSeconds] = useState<number>(0);
+  const [recordError, setRecordError] = useState<string>('');
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
+  const recordStreamRef = useRef<MediaStream | null>(null);
+  const recordTimerRef = useRef<number | null>(null);
+
+  // Nettoyage à la fermeture : arrêter micro & minuteur
+  useEffect(() => {
+    if (!isOpen) {
+      stopRecording(true);
+      setPhotoVideoDataUrl(null);
+      setPhotoVideoName('');
+      setIsPhotoVideo(false);
+      setVoiceMemoDataUrl(null);
+      setAttachError('');
+      setRecordError('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Sélection d'une photo ou vidéo depuis l'ordinateur
+  const handlePickFile = () => {
+    setAttachError('');
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permet de re-sélectionner le même fichier
+    if (!file) return;
+
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      setAttachError('Format non supporté : choisissez une image (JPG, PNG, WEBP…) ou une vidéo (MP4, WEBM…).');
+      return;
+    }
+    if (file.size > 30 * 1024 * 1024) {
+      setAttachError('Fichier trop lourd (30 Mo maximum).');
+      return;
+    }
+
+    setAttachBusy(true);
+    setAttachError('');
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setAttachBusy(false);
+      setAttachError("Impossible de lire le fichier.");
+    };
+    reader.onload = () => {
+      setAttachBusy(false);
+      setPhotoVideoDataUrl(reader.result as string);
+      setPhotoVideoName(file.name);
+      setIsPhotoVideo(file.type.startsWith('video/'));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAttachment = () => {
+    setPhotoVideoDataUrl(null);
+    setPhotoVideoName('');
+    setIsPhotoVideo(false);
+    setAttachError('');
+  };
+
+  // --- Enregistrement du mémo vocal (MediaRecorder) ---
+  const startRecording = async () => {
+    setRecordError('');
+    setVoiceMemoDataUrl(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : '';
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      recordStreamRef.current = stream;
+      recordChunksRef.current = [];
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) recordChunksRef.current.push(ev.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        // Data URL (et non blob: URL) pour pouvoir l'envoyer à l'API / la persister
+        const reader = new FileReader();
+        reader.onload = () => {
+          setVoiceMemoDataUrl(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+        setRecordSeconds(0);
+        if (recordStreamRef.current) {
+          recordStreamRef.current.getTracks().forEach((t) => t.stop());
+          recordStreamRef.current = null;
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setRecordSeconds(0);
+      recordTimerRef.current = window.setInterval(() => {
+        setRecordSeconds((s) => s + 1);
+      }, 1000);
+    } catch (err) {
+      console.warn('Micro inaccessible :', err);
+      setRecordError(
+        "Microphone inaccessible. Veuillez autoriser l'accès au micro dans votre navigateur pour enregistrer le mémo vocal."
+      );
+    }
+  };
+
+  const stopRecording = (silent = false) => {
+    if (recordTimerRef.current !== null) {
+      window.clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      try {
+        recorder.stop();
+      } catch {
+        /* déjà arrêté */
+      }
+    }
+    mediaRecorderRef.current = null;
+    setIsRecording(false);
+    if (silent && recordStreamRef.current) {
+      recordStreamRef.current.getTracks().forEach((t) => t.stop());
+      recordStreamRef.current = null;
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      void startRecording();
+    }
+  };
+
+  const formatRecordTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  };
 
   if (!isOpen) return null;
 
@@ -121,6 +278,13 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
       symptoms: selectedSymptoms,
       urgency,
       errorCode,
+      attachments:
+        photoVideoDataUrl || voiceMemoDataUrl
+          ? {
+              photoVideo: photoVideoDataUrl || undefined,
+              voiceMemo: voiceMemoDataUrl || undefined,
+            }
+          : undefined,
     });
 
     onClose();
@@ -255,33 +419,130 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
             </div>
           </div>
 
-          {/* 4. Multimedia & Voice Note Attachments (Simulation) */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setPhotoUploaded(!photoUploaded)}
-              className={`p-3 rounded-xl border flex items-center justify-center space-x-2 transition-colors cursor-pointer font-semibold ${
-                photoUploaded
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Upload className="w-4 h-4" />
-              <span>{photoUploaded ? 'Photo/Vidéo Jointe (1)' : 'Joindre Photo/Vidéo'}</span>
-            </button>
+          {/* 4. Pièces jointes : photo/vidéo & mémo vocal */}
+          <div className="space-y-2.5">
+            <label className="font-bold text-slate-900 block text-xs">
+              4. Pièces Jointes (Photo / Vidéo / Mémo Vocal)
+            </label>
 
-            <button
-              type="button"
-              onClick={() => setAudioRecorded(!audioRecorded)}
-              className={`p-3 rounded-xl border flex items-center justify-center space-x-2 transition-colors cursor-pointer font-semibold ${
-                audioRecorded
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Mic className="w-4 h-4" />
-              <span>{audioRecorded ? 'Vocal Enregistré (12s)' : 'Enregistrer Mémo Vocal'}</span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Joindre Photo/Vidéo */}
+              <div className="space-y-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                {photoVideoDataUrl ? (
+                  <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-2.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-emerald-800 flex items-center space-x-1.5 truncate">
+                        <Upload className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{photoVideoName || 'Fichier joint'}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={removeAttachment}
+                        className="text-rose-600 hover:text-rose-800 p-1 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
+                        title="Retirer la pièce jointe"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {isPhotoVideo ? (
+                      <video src={photoVideoDataUrl} controls className="w-full rounded-lg bg-black max-h-40" />
+                    ) : (
+                      <img
+                        src={photoVideoDataUrl}
+                        alt="Aperçu de la pièce jointe"
+                        className="w-full rounded-lg max-h-40 object-cover"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={handlePickFile}
+                      className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-emerald-200 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                    >
+                      Remplacer la pièce jointe
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handlePickFile}
+                    disabled={attachBusy}
+                    className={`p-3 rounded-xl border flex items-center justify-center space-x-2 transition-colors cursor-pointer font-semibold w-full disabled:opacity-60 ${
+                      attachBusy
+                        ? 'bg-slate-50 border-slate-200 text-slate-400'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {attachBusy ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    <span>{attachBusy ? 'Lecture du fichier…' : 'Joindre Photo/Vidéo'}</span>
+                  </button>
+                )}
+                {attachError && <p className="text-[10px] text-rose-600 font-semibold">{attachError}</p>}
+              </div>
+
+              {/* Enregistrer Mémo Vocal */}
+              <div className="space-y-2">
+                {voiceMemoDataUrl ? (
+                  <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-2.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-emerald-800 flex items-center space-x-1.5">
+                        <Mic className="w-3.5 h-3.5 shrink-0" />
+                        <span>Mémo vocal enregistré</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setVoiceMemoDataUrl(null)}
+                        className="text-rose-600 hover:text-rose-800 p-1 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
+                        title="Supprimer le mémo vocal"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <audio src={voiceMemoDataUrl} controls className="w-full" />
+                    <button
+                      type="button"
+                      onClick={toggleRecording}
+                      className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-emerald-200 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                    >
+                      Ré-enregistrer
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={toggleRecording}
+                    className={`p-3 rounded-xl border flex items-center justify-center space-x-2 transition-colors cursor-pointer font-semibold w-full ${
+                      isRecording
+                        ? 'bg-rose-50 border-rose-300 text-rose-700 animate-pulse'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {isRecording ? (
+                      <>
+                        <Square className="w-4 h-4" />
+                        <span>Arrêter ({formatRecordTime(recordSeconds)})</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-4 h-4" />
+                        <span>Enregistrer Mémo Vocal</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                {recordError && <p className="text-[10px] text-rose-600 font-semibold">{recordError}</p>}
+              </div>
+            </div>
           </div>
 
           {/* 5. Urgency Selection + Auto-Triage Trigger */}

@@ -18,7 +18,10 @@ import {
   History,
   Maximize2,
   Minimize2,
-  X
+  X,
+  Paperclip,
+  Mic,
+  Image
 } from 'lucide-react';
 import { getRoleLabel } from './Header';
 import { can, isRole } from '../lib/permissions';
@@ -374,6 +377,47 @@ export const TicketList: React.FC<TicketListProps> = ({
                                 {s}
                               </span>
                             ))}
+                          </div>
+                        )}
+
+                        {/* Pièces jointes : photo/vidéo & mémo vocal */}
+                        {(ticket.attachments?.photoVideo || ticket.attachments?.voiceMemo) && (
+                          <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-3">
+                            <h4 className="text-[11px] font-bold text-slate-700 flex items-center space-x-1.5">
+                              <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Pièces Jointes ({[ticket.attachments?.photoVideo, ticket.attachments?.voiceMemo].filter(Boolean).length})</span>
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {ticket.attachments.photoVideo &&
+                                (ticket.attachments.photoVideo.startsWith('data:video') ? (
+                                  <video
+                                    src={ticket.attachments.photoVideo}
+                                    controls
+                                    className="w-full rounded-lg bg-black max-h-44"
+                                  />
+                                ) : (
+                                  <div className="space-y-1">
+                                    <img
+                                      src={ticket.attachments.photoVideo}
+                                      alt="Photo jointe au signalement"
+                                      className="w-full rounded-lg max-h-44 object-cover"
+                                    />
+                                    <p className="text-[10px] text-slate-400 font-bold flex items-center space-x-1">
+                                      <Image className="w-3 h-3" />
+                                      <span>Photo jointe au signalement</span>
+                                    </p>
+                                  </div>
+                                ))}
+                              {ticket.attachments.voiceMemo && (
+                                <div className="space-y-1">
+                                  <audio src={ticket.attachments.voiceMemo} controls className="w-full" />
+                                  <p className="text-[10px] text-slate-400 font-bold flex items-center space-x-1">
+                                    <Mic className="w-3 h-3" />
+                                    <span>Mémo vocal du signalant</span>
+                                  </p>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
 

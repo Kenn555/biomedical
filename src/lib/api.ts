@@ -76,6 +76,7 @@ export const api = {
     symptoms: string[];
     urgency: UrgencyLevel;
     errorCode?: string;
+    attachments?: { photoVideo?: string; voiceMemo?: string };
   }) =>
     apiFetch<{ ticket: IncidentTicket }>('/api/tickets', { method: 'POST', body: JSON.stringify(data) }).then((d) => d.ticket),
   assignTicket: (id: string, userId: string | null) =>
