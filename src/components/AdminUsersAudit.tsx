@@ -34,6 +34,8 @@ interface AdminUsersAuditProps {
   equipmentList: Equipment[];
   /** Liste des établissements enregistrés (servant de référence aux formulaires) */
   facilities?: string[];
+  /** Détail (id + nom) des établissements pour l'onglet de gestion */
+  facilitiesDetail?: { id: string; name: string }[];
   /** false pour un ingénieur/manager : seuls les admins gèrent acteurs & audit */
   canManageUsers?: boolean;
   /** password : à la création c'est le mot de passe initial ; en modification, vide = inchangé */
@@ -43,6 +45,9 @@ interface AdminUsersAuditProps {
   onAddEquipment: (newEq: Equipment) => void;
   onUpdateEquipment?: (updatedEq: Equipment) => void;
   onDeleteEquipment?: (eqId: string) => void;
+  onAddFacility?: (name: string) => void;
+  onUpdateFacility?: (id: string, name: string) => void;
+  onDeleteFacility?: (id: string) => void;
 }
 
 export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
@@ -50,6 +55,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   auditLogs,
   equipmentList,
   facilities = [],
+  facilitiesDetail = [],
   canManageUsers = true,
   onAddUser,
   onUpdateUser,
@@ -57,8 +63,11 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   onAddEquipment,
   onUpdateEquipment,
   onDeleteEquipment,
+  onAddFacility,
+  onUpdateFacility,
+  onDeleteFacility,
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'equipment' | 'audit'>(
+  const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'equipment' | 'audit' | 'facilities'>(
     canManageUsers ? 'users' : 'equipment'
   );
 
@@ -119,6 +128,12 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   const [eqStatus, setEqStatus] = useState<EquipmentStatus>('operational');
   const [eqImageUrl, setEqImageUrl] = useState('');
   const [eqNotes, setEqNotes] = useState('');
+
+  // Facilities Modal State (création / renommage)
+  const [isFacilityModalOpen, setIsFacilityModalOpen] = useState(false);
+  const [editingFacility, setEditingFacility] = useState<{ id: string; name: string } | null>(null);
+  const [facilityName, setFacilityName] = useState('');
+  const [facilityError, setFacilityError] = useState('');
 
   // Photos de démonstration proposées pour un équipement (par catégorie)
   const PRESET_EQUIPMENT_IMAGES = [
@@ -335,6 +350,45 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     }
   };
 
+  // Facilities : ouverture du modal de création / renommage
+  const handleOpenFacilityModal = (facility?: { id: string; name: string }) => {
+    setEditingFacility(facility || null);
+    setFacilityName(facility?.name || '');
+    setFacilityError('');
+    setIsFacilityModalOpen(true);
+  };
+
+  const handleSaveFacility = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = facilityName.trim();
+    if (!trimmed) {
+      setFacilityError('Veuillez saisir un nom d\'établissement.');
+      return;
+    }
+    const duplicate = facilitiesDetail.some(
+      (f) => f.name.toLowerCase() === trimmed.toLowerCase() && f.id !== editingFacility?.id
+    );
+    if (duplicate) {
+      setFacilityError('Cet établissement existe déjà.');
+      return;
+    }
+    if (editingFacility) {
+      if (onUpdateFacility) onUpdateFacility(editingFacility.id, trimmed);
+      alert(`Établissement renommé en « ${trimmed} » avec succès !`);
+    } else {
+      if (onAddFacility) onAddFacility(trimmed);
+      alert(`Établissement « ${trimmed} » créé avec succès !`);
+    }
+    setIsFacilityModalOpen(false);
+  };
+
+  const handleDeleteFacilityClick = (facility: { id: string; name: string }) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer l'établissement "${facility.name}" ?`)) {
+      if (onDeleteFacility) onDeleteFacility(facility.id);
+      alert(`Établissement ${facility.name} supprimé.`);
+    }
+  };
+
   // Toggle permission directly from Permissions Matrix
   const handleToggleUserPermission = (user: UserProfile, permKey: keyof Required<UserProfile>['permissions']) => {
     const currentPerms = user.permissions || {
@@ -423,6 +477,18 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
           <Wrench className="w-4 h-4 text-sky-400" />
           <span>Gestion du Parc Équipements ({equipmentList.length})</span>
         </button>
+
+        {canManageUsers && (
+          <button
+            onClick={() => setActiveTab('facilities')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              activeTab === 'facilities' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Building2 className="w-4 h-4 text-sky-400" />
+            <span>Établissements ({facilitiesDetail.length})</span>
+          </button>
+        )}
 
         {canManageUsers && (
           <button
@@ -773,6 +839,94 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* TAB 3bis: ÉTABLISSEMENTS (LISTE, CREER, RENOMMER, SUPPRIMER) */}
+      {activeTab === 'facilities' && (
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                <Building2 className="w-4 h-4 text-sky-600" />
+                <span>Gestion des Établissements & Sites</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">Sites rattachés au réseau : ils alimentent tous les sélecteurs de l'application</p>
+            </div>
+
+            <button
+              onClick={() => handleOpenFacilityModal()}
+              className="bg-slate-900 hover:bg-slate-800 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all shadow-xs"
+            >
+              <PlusCircle className="w-4 h-4 shrink-0" />
+              <span>Ajouter un Établissement</span>
+            </button>
+          </div>
+
+          {facilitiesDetail.length === 0 ? (
+            <div className="text-center py-10 space-y-2">
+              <Building2 className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-bold text-slate-700">Aucun établissement enregistré</p>
+              <p className="text-xs text-slate-500">Ajoutez un premier site pour l'associer aux équipements et aux acteurs.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-700 uppercase text-[10px] tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 font-bold">Établissement / Site</th>
+                    <th className="p-3 font-bold">Équipements rattachés</th>
+                    <th className="p-3 font-bold">Acteurs affectés</th>
+                    <th className="p-3 font-bold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {facilitiesDetail.map((fac) => {
+                    const eqCount = equipmentList.filter((e) => e.facility === fac.name).length;
+                    const userCount = users.filter((u) => u.facility === fac.name).length;
+                    return (
+                      <tr key={fac.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="p-3">
+                          <span className="font-bold text-slate-900 flex items-center space-x-2">
+                            <Building2 className="w-4 h-4 text-sky-500 shrink-0" />
+                            <span>{fac.name}</span>
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <span className="text-[11px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-md">{eqCount}</span>
+                        </td>
+                        <td className="p-3">
+                          <span className="text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">{userCount}</span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              onClick={() => handleOpenFacilityModal(fac)}
+                              className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1 cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                              <span>Renommer</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteFacilityClick(fac)}
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 p-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                              title="Supprimer cet établissement"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <p className="text-[10px] text-slate-400 font-medium border-t border-slate-200/80 pt-3">
+            Les établissements créés ici sont immédiatement disponibles dans tous les sélecteurs de l'application (filtre du header, formulaires acteurs et équipements, alertes critiques).
+          </p>
         </div>
       )}
 
@@ -1306,6 +1460,59 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 >
                   <Save className="w-4 h-4" />
                   <span>{editingEq ? 'Enregistrer Modifications' : 'Enregistrer Matériel'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Établissement : création / renommage */}
+      {isFacilityModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                <Building2 className="w-4 h-4 text-sky-600" />
+                <span>{editingFacility ? `Renommer : ${editingFacility.name}` : 'Ajouter un Établissement'}</span>
+              </h3>
+              <button
+                onClick={() => setIsFacilityModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveFacility} className="space-y-3.5 text-xs font-medium text-slate-700">
+              <div>
+                <label className="font-bold text-slate-900 block mb-1">Nom de l'Établissement *</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={facilityName}
+                  onChange={(e) => setFacilityName(e.target.value)}
+                  placeholder="Ex: Centre de Santé de Base de Vatomandry"
+                  className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs"
+                />
+              </div>
+              {facilityError && <p className="text-[10px] text-rose-600 font-semibold">{facilityError}</p>}
+
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsFacilityModalOpen(false)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="bg-slate-900 hover:bg-slate-800 text-emerald-400 px-5 py-2 rounded-xl font-bold transition-all shadow-xs flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{editingFacility ? 'Enregistrer le Nom' : 'Créer l\'Établissement'}</span>
                 </button>
               </div>
             </form>

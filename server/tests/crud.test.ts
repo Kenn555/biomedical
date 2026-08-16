@@ -361,6 +361,19 @@ async function testFacilities(admin: CookieJar): Promise<void> {
   const upd = await api('PUT', `/facilities/${fid}`, admin, { name: 'Clinique Test Renommée' });
   check('update facility → nom modifié', upd.status === 200 && upd.data?.facility?.name === 'Clinique Test Renommée');
 
+  // Détail complet (id + nom) pour l'onglet d'administration
+  const detail = await api('GET', '/facilities/detail', admin);
+  check('facilities/detail → liste d\'objets {id, name}', detail.status === 200 && Array.isArray(detail.data?.facilities));
+  const found = (detail.data?.facilities as any[] || []).find((f: any) => f.id === fid);
+  check('facility renommée présente avec id + nom', !!found && found.name === 'Clinique Test Renommée');
+
+  // Route détail réservée aux admins (canManageUsers)
+  const techJar = await loginAs(TECH_EMAIL, PASSWORD);
+  if (techJar) {
+    const techDetail = await api('GET', '/facilities/detail', techJar);
+    check('technicien GET /facilities/detail → 403', techDetail.status === 403);
+  }
+
   const del = await api('DELETE', `/facilities/${fid}`, admin);
   check('delete facility → 200', del.status === 200);
 }

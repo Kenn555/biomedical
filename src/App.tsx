@@ -78,6 +78,10 @@ export default function App() {
     getCachedData(STORAGE_KEYS.AUDIT, MOCK_AUDIT_LOGS)
   );
   const [facilities, setFacilities] = useState<string[]>(MOCK_FACILITIES);
+  // Détail (id + nom) des établissements pour la gestion dans l'administration
+  const [facilitiesDetail, setFacilitiesDetail] = useState<{ id: string; name: string }[]>(
+    MOCK_FACILITIES.map((name) => ({ id: `fac-mock-${name}`, name }))
+  );
 
   // Network & Cache State
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -617,6 +621,83 @@ export default function App() {
     }
   };
 
+  // Facilities CRUD (synchronisé avec le backend ; fallback local si hors-ligne)
+  const syncFacilities = (names: string[], detail: { id: string; name: string }[]) => {
+    setFacilities(names);
+    setFacilitiesDetail(detail);
+  };
+
+  const handleAddFacility = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        const serverFacility = await api.createFacility(trimmed);
+        syncFacilities([...facilities, serverFacility.name], [...facilitiesDetail, serverFacility]);
+        logAuditAction('Ajout Établissement', serverFacility.name, 'Nouveau site rattaché');
+        return;
+      } catch {
+        // fallthrough : conservation locale
+      }
+    }
+    const localFacility = { id: `fac-${Date.now()}`, name: trimmed };
+    syncFacilities([...facilities, trimmed], [...facilitiesDetail, localFacility]);
+    logAuditAction('Ajout Établissement', trimmed, 'Nouveau site rattaché (hors-ligne)');
+    if (isOnline && !isSimulatedOffline) {
+      addToast(
+        'warning',
+        'Synchronisation différée',
+        `L'établissement ${trimmed} sera transmis au serveur plus tard.`
+      );
+    }
+  };
+
+  const handleUpdateFacility = async (id: string, newName: string) => {
+    const trimmed = newName.trim();
+    const oldName = facilitiesDetail.find((f) => f.id === id)?.name || id;
+    if (!trimmed || trimmed === oldName) return;
+    const names = facilities.map((f) => (f === oldName ? trimmed : f));
+    const detail = facilitiesDetail.map((f) => (f.id === id ? { ...f, name: trimmed } : f));
+    syncFacilities(names, detail);
+    logAuditAction('Modification Établissement', trimmed, `Site renommé depuis « ${oldName} »`);
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        const serverFacility = await api.updateFacility(id, trimmed);
+        syncFacilities(
+          facilities.map((f) => (f === oldName ? serverFacility.name : f)),
+          facilitiesDetail.map((f) => (f.id === id ? serverFacility : f))
+        );
+      } catch {
+        addToast(
+          'warning',
+          'Synchronisation différée',
+          `Le renommage de ${oldName} sera transmis au serveur plus tard.`
+        );
+      }
+    }
+  };
+
+  const handleDeleteFacility = async (id: string) => {
+    const target = facilitiesDetail.find((f) => f.id === id);
+    const name = target?.name || id;
+    syncFacilities(
+      facilities.filter((f) => f !== name),
+      facilitiesDetail.filter((f) => f.id !== id)
+    );
+    logAuditAction('Suppression Établissement', name, 'Site retiré du réseau');
+    if (isOnline && !isSimulatedOffline) {
+      try {
+        await api.deleteFacility(id);
+      } catch {
+        addToast(
+          'warning',
+          'Synchronisation différée',
+          `La suppression de ${name} sera transmise au serveur plus tard.`
+        );
+      }
+    }
+  };
+
   // Knowledge article creation (server-first, fallback local)
   const handleAddKnowledgeArticle = async (newArt: KnowledgeArticle) => {
     if (isOnline && !isSimulatedOffline) {
@@ -653,6 +734,12 @@ export default function App() {
       setKnowledgeArticles(data.knowledge);
       setAuditLogs(data.audit);
       if (data.facilities.length > 0) setFacilities(data.facilities);
+      try {
+        const detail = await api.getFacilitiesDetail();
+        setFacilitiesDetail(detail);
+      } catch {
+        /* liste détaillée indisponible (rôle sans canManageUsers) : on garde les noms seuls */
+      }
       addToast(
         'success',
         'Connexion Réussie',
@@ -850,6 +937,7 @@ export default function App() {
               auditLogs={auditLogs}
               equipmentList={equipmentList}
               facilities={facilities}
+              facilitiesDetail={facilitiesDetail}
               canManageUsers={can(currentUser, 'canManageUsers')}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
@@ -857,6 +945,9 @@ export default function App() {
               onAddEquipment={handleAddEquipment}
               onUpdateEquipment={handleUpdateEquipment}
               onDeleteEquipment={handleDeleteEquipment}
+              onAddFacility={handleAddFacility}
+              onUpdateFacility={handleUpdateFacility}
+              onDeleteFacility={handleDeleteFacility}
             />
           ) : (
             <div className="bg-white border border-slate-200/80 rounded-2xl p-8 text-center shadow-sm">

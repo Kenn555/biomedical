@@ -126,6 +126,8 @@ export const api = {
 
   // --- Facilities ---
   getFacilities: () => apiFetch<{ facilities: string[] }>('/api/facilities').then((d) => d.facilities),
+  getFacilitiesDetail: () =>
+    apiFetch<{ facilities: { id: string; name: string }[] }>('/api/facilities/detail').then((d) => d.facilities),
   createFacility: (name: string) =>
     apiFetch<{ facility: { id: string; name: string } }>('/api/facilities', {
       method: 'POST',

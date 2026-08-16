@@ -419,6 +419,11 @@ apiRouter.get('/facilities', requireAuth, (req, res) => {
   ok(res, { facilities: listAll('facilities').map((f) => f.name) });
 });
 
+// Détail complet (id + nom) pour la gestion dans l'administration
+apiRouter.get('/facilities/detail', requireAuth, requirePermission('canManageUsers'), (req, res) => {
+  ok(res, { facilities: listAll('facilities') });
+});
+
 apiRouter.post('/facilities', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const { name } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: 'Nom requis.' });
