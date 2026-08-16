@@ -47,7 +47,8 @@ interface AdminUsersAuditProps {
   onDeleteEquipment?: (eqId: string) => void;
   onAddFacility?: (name: string) => void;
   onUpdateFacility?: (id: string, name: string) => void;
-  onDeleteFacility?: (id: string) => void;
+  /** transferTo : site cible pour les équipements/acteurs rattachés avant suppression */
+  onDeleteFacility?: (id: string, transferTo?: string) => void;
 }
 
 export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
@@ -129,11 +130,18 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   const [eqImageUrl, setEqImageUrl] = useState('');
   const [eqNotes, setEqNotes] = useState('');
 
-  // Facilities Modal State (création / renommage)
+  // Facilities Modal State (création / renommage / transfert avant suppression)
   const [isFacilityModalOpen, setIsFacilityModalOpen] = useState(false);
   const [editingFacility, setEditingFacility] = useState<{ id: string; name: string } | null>(null);
   const [facilityName, setFacilityName] = useState('');
   const [facilityError, setFacilityError] = useState('');
+  const [facilityToDelete, setFacilityToDelete] = useState<{
+    id: string;
+    name: string;
+    equipmentCount: number;
+    usersCount: number;
+  } | null>(null);
+  const [facilityTransferTo, setFacilityTransferTo] = useState('');
 
   // Photos de démonstration proposées pour un équipement (par catégorie)
   const PRESET_EQUIPMENT_IMAGES = [
@@ -383,10 +391,38 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   };
 
   const handleDeleteFacilityClick = (facility: { id: string; name: string }) => {
+    const equipmentCount = equipmentList.filter((e) => e.facility === facility.name).length;
+    const usersCount = users.filter((u) => u.facility === facility.name).length;
+
+    // Site encore utilisé : on propose un transfert des rattachements
+    if (equipmentCount > 0 || usersCount > 0) {
+      setFacilityToDelete({ id: facility.id, name: facility.name, equipmentCount, usersCount });
+      setFacilityTransferTo('');
+      return;
+    }
+
     if (window.confirm(`Êtes-vous sûr de vouloir supprimer l'établissement "${facility.name}" ?`)) {
       if (onDeleteFacility) onDeleteFacility(facility.id);
       alert(`Établissement ${facility.name} supprimé.`);
     }
+  };
+
+  const handleConfirmDeleteFacility = () => {
+    if (!facilityToDelete) return;
+    const transferTo = facilityTransferTo.trim();
+    if (facilityToDelete.equipmentCount > 0 || facilityToDelete.usersCount > 0) {
+      if (!transferTo) {
+        alert('Veuillez sélectionner un établissement de transfert pour les équipements et acteurs rattachés.');
+        return;
+      }
+      if (transferTo === facilityToDelete.name) {
+        alert('L\'établissement de transfert doit être différent du site à supprimer.');
+        return;
+      }
+    }
+    if (onDeleteFacility) onDeleteFacility(facilityToDelete.id, transferTo || undefined);
+    alert(`Établissement ${facilityToDelete.name} supprimé${transferTo ? ` — rattachements transférés vers ${transferTo}` : '.'}`);
+    setFacilityToDelete(null);
   };
 
   // Toggle permission directly from Permissions Matrix
@@ -579,7 +615,17 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                       <p className="text-xs text-slate-700 font-semibold">{u.title}</p>
                       <p className="text-[11px] text-slate-500 flex items-center space-x-1 truncate">
                         <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="truncate">{u.facility}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUserSearch(u.facility);
+                            setUserRoleFilter('ALL');
+                          }}
+                          title={`Filtrer les acteurs de ${u.facility}`}
+                          className="truncate text-slate-700 font-semibold hover:text-sky-700 hover:underline transition-colors cursor-pointer"
+                        >
+                          {u.facility}
+                        </button>
                       </p>
                       <p className="text-[11px] text-slate-500 flex items-center space-x-1 truncate">
                         <Mail className="w-3 h-3 text-slate-400 shrink-0" />
@@ -893,10 +939,42 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                           </span>
                         </td>
                         <td className="p-3">
-                          <span className="text-[11px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-md">{eqCount}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('equipment');
+                              setEqSearch(fac.name);
+                              setEqCategoryFilter('ALL');
+                            }}
+                            disabled={eqCount === 0}
+                            title={eqCount > 0 ? `Voir les ${eqCount} équipements de ${fac.name}` : 'Aucun équipement rattaché'}
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-colors ${
+                              eqCount > 0
+                                ? 'bg-sky-100 text-sky-800 hover:bg-sky-200 hover:text-sky-900 underline-offset-2 hover:underline cursor-pointer'
+                                : 'bg-slate-100 text-slate-400 cursor-default'
+                            }`}
+                          >
+                            {eqCount} équipement(s)
+                          </button>
                         </td>
                         <td className="p-3">
-                          <span className="text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">{userCount}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('users');
+                              setUserSearch(fac.name);
+                              setUserRoleFilter('ALL');
+                            }}
+                            disabled={userCount === 0}
+                            title={userCount > 0 ? `Voir les ${userCount} acteurs de ${fac.name}` : 'Aucun acteur affecté'}
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-colors ${
+                              userCount > 0
+                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 hover:text-emerald-900 underline-offset-2 hover:underline cursor-pointer'
+                                : 'bg-slate-100 text-slate-400 cursor-default'
+                            }`}
+                          >
+                            {userCount} acteur(s)
+                          </button>
                         </td>
                         <td className="p-3">
                           <div className="flex items-center justify-end space-x-2">
@@ -1463,6 +1541,81 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Transfert : suppression d'un site encore utilisé */}
+      {facilityToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                <Building2 className="w-4 h-4 text-rose-600" />
+                <span>Supprimer : {facilityToDelete.name}</span>
+              </h3>
+              <button
+                onClick={() => setFacilityToDelete(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs font-medium text-slate-700">
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 space-y-2">
+                <p className="font-bold text-rose-800">Cet établissement est encore utilisé :</p>
+                <ul className="space-y-1 text-[11px]">
+                  <li className="flex items-center space-x-2">
+                    <Wrench className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                    <span><strong>{facilityToDelete.equipmentCount}</strong> équipement(s) rattaché(s)</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Users className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span><strong>{facilityToDelete.usersCount}</strong> acteur(s) affecté(s)</span>
+                  </li>
+                </ul>
+                <p className="text-[11px] text-rose-700">
+                  Transférez-les vers un autre établissement avant de supprimer, ou annulez.
+                </p>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-900 block mb-1">Établissement de transfert *</label>
+                <select
+                  value={facilityTransferTo}
+                  onChange={(e) => setFacilityTransferTo(e.target.value)}
+                  className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs cursor-pointer font-semibold"
+                >
+                  <option value="">-- Choisir un site --</option>
+                  {facilitiesDetail
+                    .filter((f) => f.id !== facilityToDelete.id)
+                    .map((f) => (
+                      <option key={f.id} value={f.name}>
+                        {f.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setFacilityToDelete(null)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteFacility}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-xs"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Transférer & Supprimer</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

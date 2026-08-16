@@ -374,6 +374,40 @@ async function testFacilities(admin: CookieJar): Promise<void> {
     check('technicien GET /facilities/detail → 403', techDetail.status === 403);
   }
 
+  // Suppression d'un établissement encore utilisé → 409 (protection + transfert)
+  const usedFacility = await api('POST', '/facilities', admin, { name: 'Site Avec Rattachements' });
+  const usedId: string = usedFacility.data?.facility?.id;
+  const eqCreated = await api('POST', '/equipment', admin, {
+    code: 'EQ-TRANSFERT-01',
+    name: 'Équipement Transfert',
+    category: 'moniteur',
+    status: 'operational',
+    facility: 'Site Avec Rattachements',
+  });
+
+  const delUsed = await api('DELETE', `/facilities/${usedId}`, admin);
+  check('delete établissement utilisé → 409', delUsed.status === 409);
+  check('409 contient les compteurs', delUsed.data?.counts?.equipment === 1 && delUsed.data?.counts?.users === 0);
+
+  const delNoTarget = await api('DELETE', `/facilities/${usedId}`, admin, { transferTo: '' });
+  check('delete sans site de transfert → 409', delNoTarget.status === 409);
+
+  const delSame = await api('DELETE', `/facilities/${usedId}`, admin, { transferTo: 'Site Avec Rattachements' });
+  check('delete vers le même site → 400', delSame.status === 400);
+
+  const delWithTransfer = await api('DELETE', `/facilities/${usedId}`, admin, { transferTo: 'Clinique Test Renommée' });
+  check('delete avec transfert → 200', delWithTransfer.status === 200);
+
+  const eqAfterTransfer = await api('GET', '/equipment', admin);
+  const moved = (eqAfterTransfer.data?.equipment as any[] || []).find((e: any) => e.code === 'EQ-TRANSFERT-01');
+  check('équipement transféré vers le site cible', !!moved && moved.facility === 'Clinique Test Renommée');
+
+  // Nettoyage : retire l'équipement de test transféré pour libérer la suppression finale
+  const movedEqId: string = moved?.id;
+  if (movedEqId) {
+    await api('DELETE', `/equipment/${movedEqId}`, admin);
+  }
+
   const del = await api('DELETE', `/facilities/${fid}`, admin);
   check('delete facility → 200', del.status === 200);
 }

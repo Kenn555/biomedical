@@ -447,8 +447,36 @@ apiRouter.put('/facilities/:id', requireAuth, requirePermission('canManageUsers'
 apiRouter.delete('/facilities/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   const existing = getById('facilities', req.params.id);
   if (!existing) return res.status(404).json({ error: 'Établissement introuvable.' });
+
+  const name = existing.name as string;
+  const attachedEquipment = listAll('equipment').filter((e) => e.facility === name);
+  const attachedUsers = listAll('users').filter((u) => u.facility === name);
+  const { transferTo } = req.body || {};
+
+  if (attachedEquipment.length > 0 || attachedUsers.length > 0) {
+    if (!transferTo || !String(transferTo).trim()) {
+      return res.status(409).json({
+        error: 'Impossible de supprimer : des équipements ou des acteurs sont encore rattachés à cet établissement.',
+        counts: { equipment: attachedEquipment.length, users: attachedUsers.length },
+      });
+    }
+    // Transfert vers un autre établissement avant suppression
+    const target = findBy('facilities', 'name', String(transferTo).trim());
+    if (!target) return res.status(400).json({ error: 'Établissement de transfert introuvable.' });
+    if (String(transferTo).trim() === name) {
+      return res.status(400).json({ error: 'L\'établissement de transfert doit être différent du site supprimé.' });
+    }
+    for (const eq of attachedEquipment) {
+      updateRow('equipment', eq.id as string, { facility: String(transferTo).trim() });
+    }
+    for (const u of attachedUsers) {
+      updateRow('users', u.id as string, { facility: String(transferTo).trim() });
+    }
+    logAudit(req, 'Transfert Établissement', name, `${attachedEquipment.length} équipement(s) et ${attachedUsers.length} acteur(s) transférés vers ${transferTo}`);
+  }
+
   deleteRow('facilities', req.params.id);
-  logAudit(req, 'Suppression Établissement', existing.name as string, 'Site retiré du réseau');
+  logAudit(req, 'Suppression Établissement', name, 'Site retiré du réseau');
   ok(res, {});
 });
 

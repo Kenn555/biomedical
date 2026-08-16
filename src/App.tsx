@@ -677,9 +677,19 @@ export default function App() {
     }
   };
 
-  const handleDeleteFacility = async (id: string) => {
+  const handleDeleteFacility = async (id: string, transferTo?: string) => {
     const target = facilitiesDetail.find((f) => f.id === id);
     const name = target?.name || id;
+    // Transfert des rattachements vers un autre site avant suppression
+    if (transferTo && transferTo !== name) {
+      setEquipmentList((prev) =>
+        prev.map((e) => (e.facility === name ? { ...e, facility: transferTo } : e))
+      );
+      setUsers((prev) =>
+        prev.map((u) => (u.facility === name ? { ...u, facility: transferTo } : u))
+      );
+      logAuditAction('Transfert Établissement', name, `Rattachements transférés vers ${transferTo}`);
+    }
     syncFacilities(
       facilities.filter((f) => f !== name),
       facilitiesDetail.filter((f) => f.id !== id)
@@ -687,7 +697,7 @@ export default function App() {
     logAuditAction('Suppression Établissement', name, 'Site retiré du réseau');
     if (isOnline && !isSimulatedOffline) {
       try {
-        await api.deleteFacility(id);
+        await api.deleteFacility(id, transferTo);
       } catch {
         addToast(
           'warning',

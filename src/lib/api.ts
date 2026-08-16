@@ -138,7 +138,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ name }),
     }).then((d) => d.facility),
-  deleteFacility: (id: string) => apiFetch<{ success: boolean }>(`/api/facilities/${id}`, { method: 'DELETE' }),
+  deleteFacility: (id: string, transferTo?: string) =>
+    apiFetch<{ success: boolean }>(`/api/facilities/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify(transferTo ? { transferTo } : {}),
+    }),
 };
 
 // ---------------------------------------------------------------------------
