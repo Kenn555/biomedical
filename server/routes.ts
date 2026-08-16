@@ -6,7 +6,8 @@ import {
   updateRow,
   deleteRow,
   findBy,
-  seedDatabase,
+  needsSetup,
+  createInitialAdmin,
   resetDatabase,
   hashPassword,
 } from './db';
@@ -83,6 +84,43 @@ apiRouter.get('/auth/me', (req, res) => {
   const user = getSessionUser(req);
   if (!user) return res.status(401).json({ error: 'Non authentifié.' });
   ok(res, { user });
+});
+
+// État de première installation : vrai si aucun utilisateur n'existe encore
+// (l'application affiche alors l'écran de création du compte administrateur).
+apiRouter.get('/auth/status', (_req, res) => {
+  ok(res, { setupRequired: needsSetup() });
+});
+
+// Création du compte administrateur initial (première installation).
+// La route n'est disponible que tant qu'aucun utilisateur n'existe.
+apiRouter.post('/setup', (req, res) => {
+  try {
+    if (!needsSetup()) {
+      return res.status(409).json({ error: 'L\'installation est déjà terminée.' });
+    }
+    const { name, email, password, title, facility } = req.body || {};
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Nom, email et mot de passe requis.' });
+    }
+    if (String(password).length < 6) {
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères.' });
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email))) {
+      return res.status(400).json({ error: 'Adresse email invalide.' });
+    }
+    const admin = createInitialAdmin({
+      name: String(name).trim(),
+      email: String(email).trim().toLowerCase(),
+      password: String(password),
+      title: title ? String(title).trim() : undefined,
+      facility: facility ? String(facility).trim() : undefined,
+    });
+    logAudit(req, 'Création Compte Administrateur', admin.email, 'Première installation de la plateforme');
+    ok(res, { user: admin });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Erreur lors de l\'installation.', details: err?.message });
+  }
 });
 
 apiRouter.post('/auth/logout', (req, res) => {
@@ -211,7 +249,7 @@ apiRouter.post('/tickets', requireAuth, requirePermission('canReportIncident'), 
         ? { photoVideo: attachments.photoVideo || null, voiceMemo: attachments.voiceMemo || null }
         : null,
     // Le signalant a déjà « vu » son propre ticket : il ne compte pas comme non lu
-    viewedBy: [user.id],
+    viewedBy: [{ id: user.id, at: new Date().toISOString() }],
     history: [
       {
         timestamp: new Date().toISOString(),
@@ -288,14 +326,20 @@ apiRouter.put('/tickets/:id/status', requireAuth, requireRole('admin', 'engineer
   ok(res, { ticket: updated });
 });
 
-// Marque un ticket comme consulté par l'utilisateur courant (badge « non lu »)
+// Marque un ticket comme consulté par l'utilisateur courant (badge « non lu »).
+// La consultation est horodatée (viewedAt) pour l'audit.
 apiRouter.put('/tickets/:id/viewed', requireAuth, (req, res) => {
   const ticket = getById('tickets', req.params.id);
   if (!ticket) return res.status(404).json({ error: 'Ticket introuvable.' });
   const user = getAuthedUser(req);
-  const viewedBy = Array.isArray(ticket.viewedBy) ? (ticket.viewedBy as string[]) : [];
-  if (!viewedBy.includes(user.id)) {
-    viewedBy.push(user.id);
+  // Normalise les anciennes valeurs (simples ids) en { id, at }
+  const viewedBy = Array.isArray(ticket.viewedBy)
+    ? (ticket.viewedBy as { id: string; at?: string }[]).map((v) =>
+        typeof v === 'string' ? { id: v, at: new Date().toISOString() } : v
+      )
+    : [];
+  if (!viewedBy.some((v) => v.id === user.id)) {
+    viewedBy.push({ id: user.id, at: new Date().toISOString() });
   }
   const updated = updateRow('tickets', req.params.id, { viewedBy });
   ok(res, { ticket: updated });
@@ -517,7 +561,7 @@ apiRouter.post('/video-sessions', requireAuth, (req, res) => {
     messages: Array.isArray(data.messages) ? data.messages : [],
     // Le créateur a déjà « vu » sa propre session : elle ne compte pas comme
     // notification d'appel entrant pour lui.
-    viewedBy: [user.id],
+    viewedBy: [{ id: user.id, at: new Date().toISOString() }],
     createdBy: { id: user.id, name: user.name },
   });
   logAudit(
@@ -535,9 +579,13 @@ apiRouter.put('/video-sessions/:id/viewed', requireAuth, (req, res) => {
   const session = getById('video_sessions', req.params.id);
   if (!session) return res.status(404).json({ error: 'Session introuvable.' });
   const user = getAuthedUser(req);
-  const viewedBy = Array.isArray(session.viewedBy) ? (session.viewedBy as string[]) : [];
-  if (!viewedBy.includes(user.id)) {
-    viewedBy.push(user.id);
+  const viewedBy = Array.isArray(session.viewedBy)
+    ? (session.viewedBy as { id: string; at?: string }[]).map((v) =>
+        typeof v === 'string' ? { id: v, at: new Date().toISOString() } : v
+      )
+    : [];
+  if (!viewedBy.some((v) => v.id === user.id)) {
+    viewedBy.push({ id: user.id, at: new Date().toISOString() });
   }
   const updated = updateRow('video_sessions', req.params.id, { viewedBy });
   ok(res, { session: updated });
@@ -555,7 +603,7 @@ apiRouter.delete('/video-sessions/:id', requireAuth, requirePermission('canManag
 // ---------------------------------------------------------------------------
 apiRouter.post('/admin/reset-data', requireAuth, requirePermission('canManageUsers'), (req, res) => {
   resetDatabase();
-  logAudit(req, 'Réinitialisation Données', 'Base de données', 'Données re-seedées depuis le référentiel');
+  logAudit(req, 'Réinitialisation Données', 'Base de données', 'Toutes les données ont été effacées');
   ok(res, {});
 });
 
@@ -650,5 +698,5 @@ apiRouter.post('/ai/assistant-chat', requireAuth, (req, res) => {
   }
 });
 
-// Seed on first load
-seedDatabase();
+// Plus aucun seed automatique : la base démarre vide et le compte administrateur
+// initial est créé via POST /api/setup (écran de première installation).

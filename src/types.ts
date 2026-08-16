@@ -112,8 +112,8 @@ export interface IncidentTicket {
     photoVideo?: string;
     voiceMemo?: string;
   };
-  /** Ids des utilisateurs ayant déjà consulté ce ticket (badge « non lu ») */
-  viewedBy?: string[];
+  /** Utilisateurs ayant déjà consulté ce ticket (badge « non lu ») avec l'heure de consultation */
+  viewedBy?: { id: string; at: string }[];
   history: {
     timestamp: string;
     actor: string;
@@ -224,8 +224,8 @@ export interface VideoSession {
     text: string;
     isAi?: boolean;
   }[];
-  /** Ids des utilisateurs ayant déjà consulté la notification d'appel (cloche) */
-  viewedBy?: string[];
+  /** Utilisateurs ayant déjà consulté la notification d'appel (cloche) */
+  viewedBy?: { id: string; at: string }[];
   createdBy?: {
     id: string;
     name: string;

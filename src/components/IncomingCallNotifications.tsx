@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Bell, PhoneCall, Video, X, CheckCheck, Clock } from 'lucide-react';
 import { VideoSession, UserProfile } from '../types';
+import { isViewed } from '../lib/ticketUtils';
 
 interface IncomingCallNotificationsProps {
   currentUser: UserProfile;
@@ -33,7 +34,7 @@ export const IncomingCallNotifications: React.FC<IncomingCallNotificationsProps>
   );
 
   const unreadCount = useMemo(
-    () => incoming.filter((s) => !(s.viewedBy || []).includes(currentUser.id)).length,
+    () => incoming.filter((s) => !isViewed(s.viewedBy, currentUser.id)).length,
     [incoming, currentUser.id]
   );
 
@@ -119,7 +120,7 @@ export const IncomingCallNotifications: React.FC<IncomingCallNotificationsProps>
             )}
 
             {incoming.map((s) => {
-              const isUnread = !(s.viewedBy || []).includes(currentUser.id);
+              const isUnread = !isViewed(s.viewedBy, currentUser.id);
               const caller = s.createdBy?.name || 'Un acteur';
               return (
                 <div

@@ -1,46 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { Activity, Mail, Lock, LogIn, WifiOff, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { UserProfile, UserRole } from '../types';
+import React, { useState } from 'react';
+import { Activity, Mail, Lock, LogIn, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { UserProfile } from '../types';
 import { api } from '../lib/api';
-import { getRoleLabel } from './Header';
 
 interface LoginScreenProps {
   onLogin: (user: UserProfile) => void;
-  onDemoMode: () => void;
 }
 
-// Comptes de démonstration seedés (tous partagent le mot de passe par défaut)
-const DEMO_ACCOUNTS: { email: string; role: UserRole }[] = [
-  { email: 'admin.telemed@sante.mg', role: 'admin' },
-  { email: 'b.rakoto@sante.mg', role: 'engineer' },
-  { email: 'jl.randria@sante.mg', role: 'technician' },
-  { email: 'm.heriniaina@sante.mg', role: 'doctor' },
-  { email: 'a.ratsimba@sante.mg', role: 'manager' },
-];
-
-const DEFAULT_PASSWORD = 'biomed123';
-
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoMode }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(DEFAULT_PASSWORD);
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [serverUp, setServerUp] = useState<boolean | null>(null);
-
-  // Vérifie si le serveur est joignable (pour proposer le mode démo)
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/health')
-      .then((r) => {
-        if (!cancelled) setServerUp(r.ok);
-      })
-      .catch(() => {
-        if (!cancelled) setServerUp(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +77,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoMode })
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="prenom.nom@sante.mg"
+                  placeholder="prenom.nom@etablissement.mg"
                   autoComplete="username"
                   className="w-full bg-slate-50 text-slate-900 placeholder-slate-400 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all"
                 />
@@ -136,45 +107,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoMode })
               <LogIn className="w-4 h-4" />
               <span>{loading ? 'Connexion en cours…' : 'Se Connecter'}</span>
             </button>
-
-            {/* Comptes de démonstration */}
-            <div className="pt-3 border-t border-slate-200/80">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">
-                Comptes de démonstration — mot de passe : <span className="font-mono text-slate-600">{DEFAULT_PASSWORD}</span>
-              </p>
-              <div className="space-y-1">
-                {DEMO_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => {
-                      setEmail(acc.email);
-                      setPassword(DEFAULT_PASSWORD);
-                      setError(null);
-                    }}
-                    className="w-full flex items-center justify-between bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-lg px-3 py-1.5 text-left transition-colors cursor-pointer"
-                  >
-                    <span className="text-[11px] font-medium text-slate-700 truncate">{acc.email}</span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0 ml-2">
-                      {getRoleLabel(acc.role)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </form>
         </div>
-
-        {/* Mode hors-ligne */}
-        {serverUp === false && (
-          <button
-            onClick={onDemoMode}
-            className="mt-4 w-full flex items-center justify-center space-x-2 bg-slate-800/70 hover:bg-slate-800 border border-slate-700/70 text-slate-300 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <WifiOff className="w-4 h-4 text-amber-400" />
-            <span>Serveur injoignable — Mode Démonstration (données locales)</span>
-          </button>
-        )}
 
         <p className="text-center text-[10px] text-slate-500 font-medium mt-4">
           © 2026 BioMed — Plateforme Collaborative de Maintenance Biomédicale

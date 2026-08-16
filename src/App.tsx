@@ -11,15 +11,6 @@ import {
   VideoSession,
   InvitedParticipant
 } from './types';
-import {
-  MOCK_USERS,
-  MOCK_EQUIPMENT,
-  MOCK_TICKETS,
-  MOCK_KNOWLEDGE_BASE,
-  MOCK_AUDIT_LOGS,
-  MOCK_FACILITIES
-} from './data/mockData';
-
 import { Header } from './components/Header';
 import { RoleContextBar } from './components/RoleContextBar';
 import { EquipmentModal } from './components/EquipmentModal';
@@ -33,6 +24,7 @@ import { VideoCallSetupModal } from './components/VideoCallSetupModal';
 import { ToastContainer, Toast } from './components/ToastContainer';
 import { OfflineBanner } from './components/OfflineBanner';
 import { LoginScreen } from './components/LoginScreen';
+import { SetupScreen } from './components/SetupScreen';
 import { AppLoader, TabSkeleton, TopProgressBar } from './components/Loading';
 import { ShieldCheck } from 'lucide-react';
 
@@ -57,35 +49,38 @@ import {
 } from './lib/offlineStorage';
 import { api, loadAllData } from './lib/api';
 import { can } from './lib/permissions';
+import { isViewed } from './lib/ticketUtils';
+
+// Utilisateur vide par défaut : aucune donnée de démonstration. L'identité
+// réelle n'est connue qu'après connexion (le contenu de l'app n'est rendu
+// qu'une fois authentifié).
+const EMPTY_USER: UserProfile = {
+  id: '',
+  name: '',
+  role: 'technician',
+  title: '',
+  facility: '',
+  email: '',
+  avatar: '',
+  phone: '',
+};
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(
-    MOCK_USERS.find((u) => u.role === 'admin') || MOCK_USERS[0]
-  );
+  // Aucune donnée de démonstration : tout provient du serveur (SQLite) après connexion.
+  const [currentUser, setCurrentUser] = useState<UserProfile>(EMPTY_USER);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [tabLoading, setTabLoading] = useState<boolean>(false);
-  const [users, setUsers] = useState<UserProfile[]>(() =>
-    getCachedData('biomed_users_v1', MOCK_USERS)
-  );
-  const [equipmentList, setEquipmentList] = useState<Equipment[]>(() =>
-    getCachedData(STORAGE_KEYS.EQUIPMENT, MOCK_EQUIPMENT)
-  );
-  const [tickets, setTickets] = useState<IncidentTicket[]>(() =>
-    getCachedData(STORAGE_KEYS.TICKETS, MOCK_TICKETS)
-  );
-  const [knowledgeArticles, setKnowledgeArticles] = useState<KnowledgeArticle[]>(() =>
-    getCachedData(STORAGE_KEYS.KNOWLEDGE, MOCK_KNOWLEDGE_BASE)
-  );
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() =>
-    getCachedData(STORAGE_KEYS.AUDIT, MOCK_AUDIT_LOGS)
-  );
+  const [setupRequired, setSetupRequired] = useState<boolean>(false);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [tickets, setTickets] = useState<IncidentTicket[]>([]);
+  const [knowledgeArticles, setKnowledgeArticles] = useState<KnowledgeArticle[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [videoSessions, setVideoSessions] = useState<VideoSession[]>([]);
-  const [facilities, setFacilities] = useState<string[]>(MOCK_FACILITIES);
+  const [facilities, setFacilities] = useState<string[]>([]);
   // Détail (id + nom) des établissements pour la gestion dans l'administration
-  const [facilitiesDetail, setFacilitiesDetail] = useState<{ id: string; name: string }[]>(
-    MOCK_FACILITIES.map((name) => ({ id: `fac-mock-${name}`, name }))
-  );
+  const [facilitiesDetail, setFacilitiesDetail] = useState<{ id: string; name: string }[]>([]);
 
   // Network & Cache State
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -259,8 +254,8 @@ export default function App() {
               ...item,
               status: data.urgency === 'critical_vital' ? 'critical' : 'breakdown',
               telemetry: {
-                ...item.telemetry,
-                errorCode: data.errorCode || item.telemetry.errorCode || 'ERR-SYS-01',
+                ...(item.telemetry || {}),
+                errorCode: data.errorCode || item.telemetry?.errorCode || 'ERR-SYS-01',
               },
             }
           : item
@@ -312,7 +307,7 @@ export default function App() {
       symptoms: data.symptoms,
       description: data.description,
       status: 'new',
-      errorCode: data.errorCode || eq.telemetry.errorCode,
+      errorCode: data.errorCode || eq.telemetry?.errorCode,
       slaDeadline: new Date(Date.now() + hours * 3600000).toISOString(),
       attachments:
         data.attachments && (data.attachments.photoVideo || data.attachments.voiceMemo)
@@ -395,10 +390,12 @@ export default function App() {
   // Marque une session vidéo comme consultée (cloche d'appels entrants)
   const handleMarkCallViewed = async (sessionId: string) => {
     const session = videoSessions.find((s) => s.id === sessionId);
-    if (!session || (session.viewedBy || []).includes(currentUser.id)) return;
+    if (!session || isViewed(session.viewedBy, currentUser.id)) return;
     setVideoSessions((prev) =>
       prev.map((s) =>
-        s.id === sessionId ? { ...s, viewedBy: [...(s.viewedBy || []), currentUser.id] } : s
+        s.id === sessionId
+          ? { ...s, viewedBy: [...(s.viewedBy || []), { id: currentUser.id, at: new Date().toISOString() }] }
+          : s
       )
     );
     try {
@@ -420,14 +417,35 @@ export default function App() {
     setIsVideoSetupOpen(true);
   };
 
+  // Marque tous les tickets comme lus pour l'utilisateur courant
+  const handleMarkAllTicketsViewed = async (ticketIds: string[]) => {
+    const toMark = ticketIds.filter((id) => {
+      const tkt = tickets.find((t) => t.id === id);
+      return tkt && !isViewed(tkt.viewedBy, currentUser.id);
+    });
+    if (toMark.length === 0) return;
+    // Optimiste : le badge et la liste se mettent à jour immédiatement
+    setTickets((prev) =>
+      prev.map((t) =>
+        toMark.includes(t.id)
+          ? { ...t, viewedBy: [...(t.viewedBy || []), { id: currentUser.id, at: new Date().toISOString() }] }
+          : t
+      )
+    );
+    await Promise.allSettled(toMark.map((id) => api.markTicketViewed(id)));
+    addToast('success', 'Tous marqués comme lus', `${toMark.length} ticket(s) marqué(s) comme consulté(s).`);
+  };
+
   // Marque un ticket comme consulté par l'utilisateur courant (badge « non lu »)
   const handleMarkTicketViewed = async (ticketId: string) => {
     const tkt = tickets.find((t) => t.id === ticketId);
-    if (!tkt || (tkt.viewedBy || []).includes(currentUser.id)) return;
+    if (!tkt || isViewed(tkt.viewedBy, currentUser.id)) return;
     // Optimiste : le badge se met à jour immédiatement
     setTickets((prev) =>
       prev.map((t) =>
-        t.id === ticketId ? { ...t, viewedBy: [...(t.viewedBy || []), currentUser.id] } : t
+        t.id === ticketId
+          ? { ...t, viewedBy: [...(t.viewedBy || []), { id: currentUser.id, at: new Date().toISOString() }] }
+          : t
       )
     );
     try {
@@ -819,11 +837,15 @@ export default function App() {
       setKnowledgeArticles(data.knowledge);
       setAuditLogs(data.audit);
       if (data.facilities.length > 0) setFacilities(data.facilities);
-      try {
-        const detail = await api.getFacilitiesDetail();
-        setFacilitiesDetail(detail);
-      } catch {
-        /* liste détaillée indisponible (rôle sans canManageUsers) : on garde les noms seuls */
+      // Le détail (id + nom) des établissements est réservé à la gestion : les
+      // autres rôles ne l'appellent pas (évite un 403 réseau, comme l'audit).
+      if (can(user, 'canManageUsers')) {
+        try {
+          const detail = await api.getFacilitiesDetail();
+          setFacilitiesDetail(detail);
+        } catch {
+          /* liste détaillée indisponible : on garde les noms seuls */
+        }
       }
       try {
         const sessions = await api.getVideoSessions();
@@ -854,23 +876,6 @@ export default function App() {
     window.setTimeout(() => setTabLoading(false), 400);
   };
 
-  // Mode démonstration : serveur injoignable, on entre avec les données locales
-  const handleDemoMode = () => {
-    const admin = MOCK_USERS.find((u) => u.role === 'admin') || MOCK_USERS[0];
-    setCurrentUser(admin);
-    setIsAuthenticated(true);
-    setUsers(getCachedData('biomed_users_v1', MOCK_USERS));
-    setEquipmentList(getCachedData(STORAGE_KEYS.EQUIPMENT, MOCK_EQUIPMENT));
-    setTickets(getCachedData(STORAGE_KEYS.TICKETS, MOCK_TICKETS));
-    setKnowledgeArticles(getCachedData(STORAGE_KEYS.KNOWLEDGE, MOCK_KNOWLEDGE_BASE));
-    setAuditLogs(getCachedData(STORAGE_KEYS.AUDIT, MOCK_AUDIT_LOGS));
-    addToast(
-      'info',
-      'Mode Démonstration',
-      'Serveur injoignable : utilisation des données locales de démonstration.'
-    );
-  };
-
   // Déconnexion : retour à l'écran de connexion
   const handleLogout = async () => {
     try {
@@ -879,15 +884,38 @@ export default function App() {
       // session déjà expirée ou serveur injoignable : on déconnecte quand même
     }
     setIsAuthenticated(false);
-    setCurrentUser(MOCK_USERS.find((u) => u.role === 'admin') || MOCK_USERS[0]);
+    setCurrentUser(EMPTY_USER);
   };
 
+  // À l'ouverture, détecte la première installation : aucun compte n'existe
+  // encore → affichage de l'écran de création du compte administrateur.
+  useEffect(() => {
+    api
+      .authStatus()
+      .then((needed) => setSetupRequired(needed))
+      .catch(() => {
+        /* serveur injoignable : l'écran de connexion s'affichera */
+      });
+  }, []);
+
   // Indicateur « Incidents & Signalements » = nombre de tickets pas encore vus/lus
-  const pendingTicketsCount = tickets.filter((t) => !(t.viewedBy || []).includes(currentUser.id)).length;
+  const pendingTicketsCount = tickets.filter((t) => !isViewed(t.viewedBy, currentUser.id)).length;
+
+  // Première installation : aucun compte n'existe → création du compte admin
+  if (setupRequired && !isAuthenticated) {
+    return (
+      <SetupScreen
+        onComplete={async (email, password) => {
+          setSetupRequired(false);
+          await handleLogin(await api.login(email, password));
+        }}
+      />
+    );
+  }
 
   // Gate de connexion : l'application n'est accessible qu'après authentification
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={handleLogin} onDemoMode={handleDemoMode} />;
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   // Chargement initial des données après connexion
@@ -980,6 +1008,7 @@ export default function App() {
             onAssignTicket={handleAssignTicket}
             onUpdateStatus={handleUpdateTicketStatus}
             onMarkViewed={handleMarkTicketViewed}
+            onMarkAllViewed={handleMarkAllTicketsViewed}
             onOpenCreateTicket={() => setIsReportModalOpen(true)}
           />
         )}
@@ -998,6 +1027,7 @@ export default function App() {
           <DashboardAnalytics
             equipmentList={equipmentList}
             tickets={tickets}
+            facilities={facilities}
             selectedFacility={selectedFacility}
           />
         )}

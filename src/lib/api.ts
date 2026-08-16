@@ -47,6 +47,14 @@ export const api = {
     await apiFetch<{ success: boolean }>('/api/auth/logout', { method: 'POST' });
   },
 
+  // --- Première installation ---
+  authStatus: () => apiFetch<{ setupRequired: boolean }>('/api/auth/status').then((d) => d.setupRequired),
+  setupAdmin: (data: { name: string; email: string; password: string; title?: string; facility?: string }) =>
+    apiFetch<{ user: { id: string; name: string; email: string; role: string } }>('/api/setup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((d) => d.user),
+
   // --- Users ---
   getUsers: () => apiFetch<{ users: UserProfile[] }>('/api/users').then((d) => d.users),
   createUser: (user: UserProfile, password?: string) =>

@@ -23,6 +23,16 @@ const ADMIN_EMAIL = 'admin.telemed@sante.mg';
 const TECH_EMAIL = 'jl.randria@sante.mg';
 const PASSWORD = 'biomed123'; // mot de passe par défaut des comptes seedés
 
+// Fixtures partagées : identifiants créés par le bootstrap (aucune donnée de
+// démonstration n'est seedée, les tests créent leurs propres référentiels).
+const TEST_FIXTURES = {
+  equipmentId1: 'eq-01',
+  equipmentId2: 'eq-02',
+  ticketId: 'tkt-01',
+  technicianUserId: 'usr-tech-01',
+  adminUserId: 'usr-adm-01',
+};
+
 // ---------------------------------------------------------------------------
 // Utilitaires
 // ---------------------------------------------------------------------------
@@ -48,6 +58,11 @@ class CookieJar {
 interface ApiResult {
   status: number;
   data: Record<string, any> | null;
+}
+
+/** Extrait les ids d'un champ viewedBy (nouveau format { id, at } ou ancien format string) */
+function vids(arr: any[] | undefined): string[] {
+  return (arr || []).map((v: any) => (typeof v === 'string' ? v : v.id));
 }
 
 async function api(
@@ -157,7 +172,95 @@ async function stopTestServer(): Promise<void> {
 // Scénarios de test
 // ---------------------------------------------------------------------------
 
-async function testAuth(): Promise<CookieJar | null> {
+// Première installation : aucun compte n'est seedé (données de démo retirées).
+// On crée donc l'administrateur via POST /api/setup, puis les acteurs de test
+// nécessaires aux scénarios (technicien et médecin).
+async function bootstrapUsers(): Promise<CookieJar | null> {
+  console.log('\n▶ Première installation (création du compte administrateur)');
+
+  // État initial : aucun utilisateur → setup requis
+  const status = await api('GET', '/auth/status');
+  check('setup requis sur base vide', status.data?.setupRequired === true);
+
+  const setup = await api('POST', '/setup', undefined, {
+    name: 'Admin Système',
+    email: ADMIN_EMAIL,
+    password: PASSWORD,
+    title: 'Administrateur',
+    facility: 'Établissement Principal',
+  });
+  check('création admin initial → 200', setup.status === 200);
+  check('compte admin créé avec rôle admin', setup.data?.user?.role === 'admin');
+
+  const again = await api('POST', '/setup', undefined, {
+    name: 'Doublon',
+    email: 'x@sante.mg',
+    password: 'secret123',
+  });
+  check('setup refusé une fois l\'installation terminée → 409', again.status === 409);
+
+  const admin = await loginAs(ADMIN_EMAIL, PASSWORD);
+  check('login admin → session créée', admin !== null);
+  if (!admin) return null;
+
+  const me = await api('GET', '/auth/me', admin);
+  if (me.data?.user?.id) TEST_FIXTURES.adminUserId = me.data.user.id;
+
+  // Acteurs de test nécessaires aux scénarios RBAC / notifications
+  const tech = await api('POST', '/users', admin, {
+    name: 'Jhonny Randria',
+    email: TECH_EMAIL,
+    role: 'technician',
+    title: 'Technicien Biomédical',
+    facility: 'Poste de Test',
+  });
+  check('création technicien de test → 200', tech.status === 200);
+  if (tech.data?.user?.id) TEST_FIXTURES.technicianUserId = tech.data.user.id;
+
+  const doctor = await api('POST', '/users', admin, {
+    name: 'Dr. Heriniaina',
+    email: 'm.heriniaina@sante.mg',
+    role: 'doctor',
+    title: 'Médecin',
+    facility: 'Poste de Test',
+  });
+  check('création médecin de test → 200', doctor.status === 200);
+
+  // Référentiel de test : deux équipements (le POST /tickets exige un
+  // équipement existant) et un ticket de référence pour les scénarios.
+  const eq1 = await api('POST', '/equipment', admin, {
+    code: 'EQ-TEST-01',
+    name: 'Moniteur de Test 1',
+    category: 'moniteur',
+    status: 'operational',
+    facility: 'Poste de Test',
+  });
+  check('création équipement de test 1 → 200', eq1.status === 200);
+  if (eq1.data?.equipment?.id) TEST_FIXTURES.equipmentId1 = eq1.data.equipment.id;
+
+  const eq2 = await api('POST', '/equipment', admin, {
+    code: 'EQ-TEST-02',
+    name: 'Moniteur de Test 2',
+    category: 'moniteur',
+    status: 'operational',
+    facility: 'Poste de Test',
+  });
+  check('création équipement de test 2 → 200', eq2.status === 200);
+  if (eq2.data?.equipment?.id) TEST_FIXTURES.equipmentId2 = eq2.data.equipment.id;
+
+  const tkt = await api('POST', '/tickets', admin, {
+    equipmentId: TEST_FIXTURES.equipmentId2,
+    description: 'Ticket de référence (fixture)',
+    symptoms: ['Test'],
+    urgency: 'low',
+  });
+  check('création ticket de référence → 200', tkt.status === 200);
+  if (tkt.data?.ticket?.id) TEST_FIXTURES.ticketId = tkt.data.ticket.id;
+
+  return admin;
+}
+
+async function testAuth(admin: CookieJar): Promise<void> {
   console.log('\n▶ Authentification');
 
   const noSession = await api('GET', '/auth/me');
@@ -166,13 +269,8 @@ async function testAuth(): Promise<CookieJar | null> {
   const badPw = await api('POST', '/auth/login', undefined, { email: ADMIN_EMAIL, password: 'mauvais' });
   check('mauvais mot de passe → 401', badPw.status === 401);
 
-  const admin = await loginAs(ADMIN_EMAIL, PASSWORD);
-  check('login admin → session créée', admin !== null);
-
-  const me = await api('GET', '/auth/me', admin!);
+  const me = await api('GET', '/auth/me', admin);
   check('auth/me → compte admin', me.status === 200 && me.data?.user?.role === 'admin');
-
-  return admin;
 }
 
 async function testUsers(admin: CookieJar): Promise<void> {
@@ -246,7 +344,7 @@ async function testTickets(admin: CookieJar): Promise<void> {
   console.log('\n▶ CRUD Tickets');
 
   const created = await api('POST', '/tickets', admin, {
-    equipmentId: 'eq-02',
+    equipmentId: TEST_FIXTURES.equipmentId2,
     description: 'Ticket de test automatisé',
     symptoms: ['Bruit parasite / Tracé illisible'],
     urgency: 'high',
@@ -263,8 +361,8 @@ async function testTickets(admin: CookieJar): Promise<void> {
   const st = await api('PUT', `/tickets/${tid}/status`, admin, { status: 'in_progress' });
   check('update statut → in_progress', st.status === 200 && st.data?.ticket?.status === 'in_progress');
 
-  const asg = await api('PUT', `/tickets/${tid}/assign`, admin, { userId: 'usr-tech-01' });
-  check('affectation → technicien assigné', asg.status === 200 && asg.data?.ticket?.assignedTo?.id === 'usr-tech-01');
+  const asg = await api('PUT', `/tickets/${tid}/assign`, admin, { userId: TEST_FIXTURES.technicianUserId });
+  check('affectation → technicien assigné', asg.status === 200 && asg.data?.ticket?.assignedTo?.id === TEST_FIXTURES.technicianUserId);
 
   const upd = await api('PUT', `/tickets/${tid}`, admin, { description: 'Description modifiée' });
   check('update générique → description modifiée', upd.status === 200 && upd.data?.ticket?.description === 'Description modifiée');
@@ -302,8 +400,8 @@ async function testReports(admin: CookieJar): Promise<void> {
   console.log('\n▶ CRUD Rapports d\'intervention');
 
   const created = await api('POST', '/reports', admin, {
-    ticketId: 'tkt-01',
-    equipmentId: 'eq-02',
+    ticketId: TEST_FIXTURES.ticketId,
+    equipmentId: TEST_FIXTURES.equipmentId2,
     technicianName: 'Test',
     problemFound: 'Panne détectée',
     actionsPerformed: ['Vérification électrique'],
@@ -422,7 +520,7 @@ async function testVideoSessions(admin: CookieJar): Promise<void> {
     endedAt: '2026-08-16T10:05:30.000Z',
     durationSeconds: 330,
     participants: [
-      { id: 'usr-adm-01', name: 'Admin Système', role: 'admin' },
+      { id: TEST_FIXTURES.adminUserId, name: 'Admin Système', role: 'admin' },
       { id: 'usr-eng-01', name: 'Dr. Bakoly Rakoto', role: 'engineer' },
     ],
     messages: [
@@ -434,8 +532,10 @@ async function testVideoSessions(admin: CookieJar): Promise<void> {
   check('durée enregistrée', created.data?.session?.durationSeconds === 330);
   check('participants enregistrés', (created.data?.session?.participants as any[] || []).length === 2);
   check('messages enregistrés', (created.data?.session?.messages as any[] || []).length === 2);
-  check('créateur renseigné', created.data?.session?.createdBy?.id === 'usr-adm-01');
-  check('session vue par son créateur', (created.data?.session?.viewedBy as string[] || []).includes('usr-adm-01'));
+  check('créateur renseigné', created.data?.session?.createdBy?.id === TEST_FIXTURES.adminUserId);
+  check('session vue par son créateur', vids(created.data?.session?.viewedBy).includes(TEST_FIXTURES.adminUserId));
+  check('heure de consultation enregistrée (créateur)',
+    typeof (created.data?.session?.viewedBy?.[0] as any)?.at === 'string');
 
   // Notifications d'appel entrant : un autre acteur la consulte via la cloche
   const tech = await loginAs(TECH_EMAIL, PASSWORD);
@@ -443,7 +543,9 @@ async function testVideoSessions(admin: CookieJar): Promise<void> {
     const viewed = await api('PUT', `/video-sessions/${created.data?.session?.id}/viewed`, tech);
     check('marquage session vue → 200', viewed.status === 200);
     check('viewedBy contient le technicien',
-      (viewed.data?.session?.viewedBy as string[] || []).includes('usr-tech-01'));
+      vids(viewed.data?.session?.viewedBy).includes(TEST_FIXTURES.technicianUserId));
+    const techEntry = (viewed.data?.session?.viewedBy as any[] || []).find((v: any) => v.id === TEST_FIXTURES.technicianUserId);
+    check('heure de consultation enregistrée (technicien)', typeof techEntry?.at === 'string');
   }
   const missing = await api('PUT', '/video-sessions/vs-inconnu/viewed', admin);
   check('marquage session inexistante → 404', missing.status === 404);
@@ -467,14 +569,16 @@ async function testTicketViewed(admin: CookieJar): Promise<void> {
 
   // Création d'un ticket : le signalant le « voit » immédiatement
   const created = await api('POST', '/tickets', admin, {
-    equipmentId: 'eq-02',
+    equipmentId: TEST_FIXTURES.equipmentId2,
     description: 'Ticket non-lu test',
     symptoms: ['Test'],
     urgency: 'low',
   });
   check('create ticket → 200', created.status === 200);
   const tid: string = created.data?.ticket?.id;
-  check('ticket créé vu par son auteur', (created.data?.ticket?.viewedBy as string[] || []).includes('usr-adm-01'));
+  check('ticket créé vu par son auteur', vids(created.data?.ticket?.viewedBy).includes(TEST_FIXTURES.adminUserId));
+  check('heure de consultation du créateur enregistrée',
+    typeof (created.data?.ticket?.viewedBy?.[0] as any)?.at === 'string');
 
   // Un technicien ne l'a pas encore vu : compté non lu
   const tech = await loginAs(TECH_EMAIL, PASSWORD);
@@ -482,15 +586,18 @@ async function testTicketViewed(admin: CookieJar): Promise<void> {
   if (tech) {
     const list = await api('GET', '/tickets', tech);
     const tkt = (list.data?.tickets as any[] || []).find((t: any) => t.id === tid);
-    check('ticket non lu pour le technicien', !(tkt?.viewedBy as string[] || []).includes('usr-tech-01'));
+    check('ticket non lu pour le technicien', !vids(tkt?.viewedBy).includes(TEST_FIXTURES.technicianUserId));
 
     const viewed = await api('PUT', `/tickets/${tid}/viewed`, tech);
     check('marquage vu → 200', viewed.status === 200);
-    check('viewedBy contient le technicien', (viewed.data?.ticket?.viewedBy as string[] || []).includes('usr-tech-01'));
+    check('viewedBy contient le technicien',
+      vids(viewed.data?.ticket?.viewedBy).includes(TEST_FIXTURES.technicianUserId));
+    const techEntry = (viewed.data?.ticket?.viewedBy as any[] || []).find((v: any) => v.id === TEST_FIXTURES.technicianUserId);
+    check('heure de consultation du technicien enregistrée', typeof techEntry?.at === 'string');
 
     const again = await api('PUT', `/tickets/${tid}/viewed`, tech);
     check('marquage idempotent (pas de doublon)',
-      (again.data?.ticket?.viewedBy as string[] || []).filter((id: string) => id === 'usr-tech-01').length === 1);
+      vids(again.data?.ticket?.viewedBy).filter((id: string) => id === TEST_FIXTURES.technicianUserId).length === 1);
   }
 
   const missing = await api('PUT', '/tickets/tkt-inconnu/viewed', admin);
@@ -511,14 +618,14 @@ async function testRbac(admin: CookieJar): Promise<void> {
   const createUser = await api('POST', '/users', tech, { name: 'x', email: 'x@sante.mg', role: 'technician' });
   check('technicien POST /users → 403', createUser.status === 403);
 
-  const deleteEq = await api('DELETE', '/equipment/eq-01', tech);
+  const deleteEq = await api('DELETE', `/equipment/${TEST_FIXTURES.equipmentId1}`, tech);
   check('technicien DELETE /equipment → 403', deleteEq.status === 403);
 
   const readEq = await api('GET', '/equipment', tech);
   check('technicien GET /equipment → 200', readEq.status === 200);
 
   const createTicket = await api('POST', '/tickets', tech, {
-    equipmentId: 'eq-02',
+    equipmentId: TEST_FIXTURES.equipmentId2,
     description: 'Ticket technicien',
     symptoms: ['Test'],
     urgency: 'low',
@@ -560,8 +667,8 @@ async function testGranularPermissions(admin: CookieJar): Promise<void> {
     check('ingénieur sans canManageEquipment POST /equipment → 403', eq.status === 403);
 
     const rep = await api('POST', '/reports', engJar, {
-      ticketId: 'tkt-01',
-      equipmentId: 'eq-02',
+      ticketId: TEST_FIXTURES.ticketId,
+      equipmentId: TEST_FIXTURES.equipmentId2,
       technicianName: 'Test',
       problemFound: 'x',
       actionsPerformed: [],
@@ -598,7 +705,7 @@ async function testGranularPermissions(admin: CookieJar): Promise<void> {
   const techJar = await loginAs('tech.restreint@sante.mg', PASSWORD);
   check('login technicien restreint → session', techJar !== null);
   if (techJar) {
-    const tkt = await api('POST', '/tickets', techJar, { equipmentId: 'eq-02', description: 'x', symptoms: ['Test'], urgency: 'low' });
+    const tkt = await api('POST', '/tickets', techJar, { equipmentId: TEST_FIXTURES.equipmentId2, description: 'x', symptoms: ['Test'], urgency: 'low' });
     check('technicien sans canReportIncident POST /tickets → 403', tkt.status === 403);
 
     const diag = await api('POST', '/ai/diagnose', techJar, { equipmentName: 'Moniteur', model: 'MX', brand: 'P', symptoms: [] });
@@ -612,23 +719,23 @@ async function testGranularPermissions(admin: CookieJar): Promise<void> {
   const doctor = await loginAs('m.heriniaina@sante.mg', PASSWORD);
   check('login médecin → session', doctor !== null);
   if (doctor) {
-    const asg = await api('PUT', '/tickets/tkt-01/assign', doctor, { userId: 'usr-tech-01' });
+    const asg = await api('PUT', `/tickets/${TEST_FIXTURES.ticketId}/assign`, doctor, { userId: TEST_FIXTURES.technicianUserId });
     check('médecin PUT /tickets/:id/assign → 403', asg.status === 403);
 
-    const st = await api('PUT', '/tickets/tkt-01/status', doctor, { status: 'in_progress' });
+    const st = await api('PUT', `/tickets/${TEST_FIXTURES.ticketId}/status`, doctor, { status: 'in_progress' });
     check('médecin PUT /tickets/:id/status → 403', st.status === 403);
 
-    const tkt = await api('POST', '/tickets', doctor, { equipmentId: 'eq-02', description: 'Signalement médecin', symptoms: ['Test'], urgency: 'low' });
+    const tkt = await api('POST', '/tickets', doctor, { equipmentId: TEST_FIXTURES.equipmentId2, description: 'Signalement médecin', symptoms: ['Test'], urgency: 'low' });
     check('médecin POST /tickets → 200', tkt.status === 200);
   }
 
   // 4. Technicien : changement de statut autorisé, validation finale réservée ingénieur
   const tech = await loginAs(TECH_EMAIL, PASSWORD);
   if (tech) {
-    const st = await api('PUT', '/tickets/tkt-01/status', tech, { status: 'in_progress' });
+    const st = await api('PUT', `/tickets/${TEST_FIXTURES.ticketId}/status`, tech, { status: 'in_progress' });
     check('technicien PUT /tickets/:id/status → 200', st.status === 200);
 
-    const val = await api('PUT', '/tickets/tkt-01/status', tech, { status: 'validated' });
+    const val = await api('PUT', `/tickets/${TEST_FIXTURES.ticketId}/status`, tech, { status: 'validated' });
     check('technicien PUT /tickets/:id/status validated → 403', val.status === 403);
   }
 
@@ -730,10 +837,11 @@ async function main(): Promise<void> {
   console.log('✅ Serveur de test prêt.');
 
   try {
-    const admin = await testAuth();
+    const admin = await bootstrapUsers();
     if (!admin) {
       console.error('❌ Impossible d\'obtenir une session admin : tests CRUD annulés.');
     } else {
+      await testAuth(admin);
       await testUsers(admin);
       await testEquipment(admin);
       await testTickets(admin);

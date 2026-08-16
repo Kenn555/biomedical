@@ -27,15 +27,8 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
   currentUser,
   onSaveReport,
 }) => {
-  const [problemFound, setProblemFound] = useState<string>(
-    ticket?.description || 'Dysfonctionnement identifié lors du télé-diagnostic.'
-  );
-  const [actionsPerformed, setActionsPerformed] = useState<string[]>([
-    'Vérification de la sécurité électrique (Courant de fuite & Masse)',
-    'Contrôle de l\'intégrité physique du câble et des capteurs',
-    'Mise à jour du microprogramme (Firmware)',
-    'Test de fonctionnement complet et simulation de constantes'
-  ]);
+  const [problemFound, setProblemFound] = useState<string>(ticket?.description || '');
+  const [actionsPerformed, setActionsPerformed] = useState<string[]>([]);
   const [newActionInput, setNewActionInput] = useState<string>('');
 
   const [replacedParts, setReplacedParts] = useState<{
@@ -52,7 +45,7 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
 
   const [electricalSafetyTestPassed, setElectricalSafetyTestPassed] = useState<boolean>(true);
   const [calibrationPerformed, setCalibrationPerformed] = useState<boolean>(true);
-  const [notes, setNotes] = useState<string>('Équipement re-testé et déclaré apte au service en télémédecine.');
+  const [notes, setNotes] = useState<string>('');
   const [signedByTechnician, setSignedByTechnician] = useState<boolean>(true);
   const [validatedByEngineer, setValidatedByEngineer] = useState<boolean>(currentUser.role === 'engineer');
 
@@ -98,7 +91,7 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
       ticketId: ticket.id,
       equipmentId: ticket.equipmentId,
       technicianName: currentUser.name,
-      engineerName: validatedByEngineer ? 'Dr. Bakoly Rakoto (Ingénieure)' : undefined,
+      engineerName: validatedByEngineer ? currentUser.name : undefined,
       startDate: ticket.reportedAt,
       endDate: new Date().toISOString(),
       problemFound,

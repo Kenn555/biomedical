@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Equipment, IncidentTicket } from '../types';
-import { MOCK_FACILITIES } from '../data/mockData';
 import { CriticalAlertsHistory } from './CriticalAlertsHistory';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import {
@@ -23,12 +22,14 @@ import {
 interface DashboardAnalyticsProps {
   equipmentList: Equipment[];
   tickets: IncidentTicket[];
+  facilities: string[];
   selectedFacility: string;
 }
 
 export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
   equipmentList,
   tickets,
+  facilities,
   selectedFacility,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'critical_alerts'>('overview');
@@ -51,6 +52,35 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
   const slaRespectedCount = filteredTickets.filter((t) => !t.slaBreached).length;
   const slaBreachedCount = filteredTickets.filter((t) => t.slaBreached).length;
   const slaRatePercentage = totalTicketsCount > 0 ? Math.round((slaRespectedCount / totalTicketsCount) * 100) : 100;
+
+  // Répartition des interventions par catégorie (calculée depuis les tickets réels)
+  const CATEGORY_COLORS: Record<string, string> = {
+    moniteur: 'bg-rose-500',
+    ecg: 'bg-amber-500',
+    echographe: 'bg-purple-500',
+    oxymetre: 'bg-sky-500',
+    pompe: 'bg-emerald-500',
+    telesurveillance: 'bg-indigo-500',
+  };
+  const CATEGORY_LABELS: Record<string, string> = {
+    moniteur: 'Moniteurs Multiparamétriques',
+    ecg: 'Électrocardiographes (ECG)',
+    echographe: 'Échographes Portables',
+    oxymetre: 'Oxymètres de Pouls',
+    pompe: 'Pompes à Perfusion',
+    telesurveillance: 'Télésurveillance',
+  };
+  const categoryCounts = new Map<string, number>();
+  for (const t of filteredTickets) {
+    const cat = t.equipmentCategory || 'moniteur';
+    categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
+  }
+  const categoryTotal = [...categoryCounts.values()].reduce((a, b) => a + b, 0) || 1;
+  const categoryBreakdown = [...categoryCounts.entries()].map(([cat, count]) => ({
+    label: CATEGORY_LABELS[cat] || cat,
+    percent: Math.round((count / categoryTotal) * 100),
+    color: CATEGORY_COLORS[cat] || 'bg-slate-500',
+  }));
 
   const slaPieData = [
     {
@@ -155,7 +185,7 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
       {activeSubTab === 'critical_alerts' ? (
         <CriticalAlertsHistory
           tickets={tickets}
-          facilities={MOCK_FACILITIES}
+          facilities={facilities}
           selectedFacility={selectedFacility}
         />
       ) : (
@@ -472,33 +502,38 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
             Répartition des Interventions par Catégorie Biomédicale
           </h4>
           <div className="space-y-2.5 text-xs">
-            <CategoryProgress label="Électrocardiographes (ECG)" percent={38} color="bg-rose-500" />
-            <CategoryProgress label="Pompes à Perfusion" percent={28} color="bg-amber-500" />
-            <CategoryProgress label="Moniteurs Multiparamétriques" percent={18} color="bg-emerald-500" />
-            <CategoryProgress label="Oxymètres de Pouls" percent={10} color="bg-sky-500" />
-            <CategoryProgress label="Échographes Portables" percent={6} color="bg-purple-500" />
+            {categoryBreakdown.length === 0 && (
+              <p className="text-[11px] text-slate-400 font-medium">
+                Aucune intervention enregistrée — les données apparaîtront ici.
+              </p>
+            )}
+            {categoryBreakdown.map((c) => (
+              <CategoryProgress key={c.label} label={c.label} percent={c.percent} color={c.color} />
+            ))}
           </div>
         </div>
 
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3">
           <h4 className="font-bold text-slate-900 text-xs border-b border-slate-200/80 pb-2">
-            Économies Réalisées grâce au Télé-Diagnostic à Distance
+            Résolutions guidées à distance
           </h4>
           <div className="space-y-3 text-xs">
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex justify-between items-center">
               <div>
-                <p className="font-bold text-slate-900">Déplacements d'Urgence Évités</p>
-                <p className="text-[10px] text-slate-500 font-medium">Résolution guidée sans envoi de véhicule</p>
+                <p className="font-bold text-slate-900">Tickets clôturés (validés / résolus)</p>
+                <p className="text-[10px] text-slate-500 font-medium">Interventions terminées sur la période</p>
               </div>
-              <span className="text-emerald-600 font-extrabold text-base">42 missions</span>
+              <span className="text-emerald-600 font-extrabold text-base">
+                {tickets.filter((t) => t.status === 'validated' || t.status === 'resolved').length}
+              </span>
             </div>
 
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex justify-between items-center">
               <div>
-                <p className="font-bold text-slate-900">Économie Estimée sur le Budget Transport</p>
-                <p className="text-[10px] text-slate-500 font-medium">Évite les trajets en brousse / hélicoptère</p>
+                <p className="font-bold text-slate-900">Sessions de télé-assistance vidéo</p>
+                <p className="text-[10px] text-slate-500 font-medium">Diagnostics guidés enregistrés</p>
               </div>
-              <span className="text-emerald-600 font-extrabold text-base">318 000 000 Ar</span>
+              <span className="text-emerald-600 font-extrabold text-base">—</span>
             </div>
           </div>
         </div>

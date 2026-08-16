@@ -88,6 +88,17 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
       setVoiceMemoDataUrl(null);
       setAttachError('');
       setRecordError('');
+    } else {
+      // À l'ouverture : sélectionne l'équipement préchargé ou le premier du parc
+      // (la liste peut avoir été chargée/modifiée après le premier rendu)
+      setSelectedEquipmentId(
+        selectedEquipmentPreload?.id || equipmentList[0]?.id || ''
+      );
+      setSelectedSymptoms([]);
+      setDescription('');
+      setErrorCode('');
+      setAiAnalysisResult(null);
+      setIsAnalyzingAi(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -371,7 +382,10 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => toggleSymptom(sym)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toggleSymptom(sym);
+                    }}
                     className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer text-[11px] font-medium flex items-center space-x-2.5 ${
                       checked
                         ? 'bg-emerald-500/10 border-emerald-500 text-emerald-950 font-bold shadow-2xs ring-1 ring-emerald-500/30'

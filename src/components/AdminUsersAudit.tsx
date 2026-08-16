@@ -95,10 +95,10 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState<UserRole>('technician');
   const [userTitle, setUserTitle] = useState('');
-  const [userFacility, setUserFacility] = useState('Hôpital de District de Manakara');
+  const [userFacility, setUserFacility] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [userPhone, setUserPhone] = useState('+261 34 00 000 00');
-  const [userSpecialty, setUserSpecialty] = useState('Biomédical & Maintenance');
+  const [userPhone, setUserPhone] = useState('');
+  const [userSpecialty, setUserSpecialty] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [userPermissions, setUserPermissions] = useState({
@@ -109,18 +109,6 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     canManageUsers: false,
   });
 
-  // Avatars de démonstration proposés à la création d'un acteur
-  const PRESET_AVATARS = [
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
-  ];
-  const DEFAULT_AVATAR = PRESET_AVATARS[0];
 
   // Equipment Modal State
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
@@ -133,8 +121,8 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   const [eqModel, setEqModel] = useState('');
   const [eqBrand, setEqBrand] = useState('');
   const [eqSerialNumber, setEqSerialNumber] = useState('');
-  const [eqFacility, setEqFacility] = useState('Hôpital de District de Manakara');
-  const [eqDepartment, setEqDepartment] = useState('Unité Télémédecine');
+  const [eqFacility, setEqFacility] = useState('');
+  const [eqDepartment, setEqDepartment] = useState('');
   const [eqStatus, setEqStatus] = useState<EquipmentStatus>('operational');
   const [eqImageUrl, setEqImageUrl] = useState('');
   const [eqNotes, setEqNotes] = useState('');
@@ -153,15 +141,6 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   const [facilityTransferTo, setFacilityTransferTo] = useState('');
   const [facilityTransferSearch, setFacilityTransferSearch] = useState('');
 
-  // Photos de démonstration proposées pour un équipement (par catégorie)
-  const PRESET_EQUIPMENT_IMAGES = [
-    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=300&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=300&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1579154204601-01588f351e67?w=300&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1581056771107-24ca5f033842?w=300&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=300&auto=format&fit=crop&q=80',
-  ];
 
   // Open User Modal for Create/Edit
   const handleOpenUserModal = (user?: UserProfile) => {
@@ -223,7 +202,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
       email: userEmail,
       phone: userPhone,
       specialty: userSpecialty,
-      avatar: userAvatar.trim() || DEFAULT_AVATAR,
+      avatar: userAvatar.trim() || '',
       permissions: userPermissions,
     };
 
@@ -635,7 +614,13 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
               return (
                 <div key={u.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex flex-col justify-between space-y-3">
                   <div className="flex items-start space-x-3">
-                    <img src={u.avatar} alt={u.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover border-2 border-slate-300 shrink-0" />
+                    {u.avatar ? (
+                      <img src={u.avatar} alt={u.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover border-2 border-slate-300 shrink-0" />
+                    ) : (
+                      <span className="w-12 h-12 rounded-full bg-slate-100 border-2 border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+                        <Users className="w-5 h-5" />
+                      </span>
+                    )}
                     <div className="flex-1 space-y-1 min-w-0">
                       <div className="flex items-center justify-between flex-wrap gap-1">
                         <h4 className="font-bold text-slate-900 text-sm truncate">{u.name}</h4>
@@ -749,7 +734,13 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                   return (
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-3 font-bold text-slate-900 flex items-center space-x-2">
-                        <img src={u.avatar} alt={u.name} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-300 shrink-0" />
+                        {u.avatar ? (
+                          <img src={u.avatar} alt={u.name} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-300 shrink-0" />
+                        ) : (
+                          <span className="w-7 h-7 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+                            <Users className="w-3.5 h-3.5" />
+                          </span>
+                        )}
                         <div>
                           <div>{u.name}</div>
                           <div className="text-[10px] text-slate-400 font-normal">{getRoleLabel(u.role)} • {u.facility}</div>
@@ -1341,31 +1332,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                     </div>
                   </div>
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1.5">Ou choisir parmi les avatars</p>
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
-                    {PRESET_AVATARS.map((url) => (
-                      <button
-                        key={url}
-                        type="button"
-                        onClick={() => setUserAvatar(url)}
-                        title="Utiliser cet avatar"
-                        className={`relative w-9 h-9 rounded-full overflow-hidden border-2 transition-all cursor-pointer ${
-                          userAvatar === url
-                            ? 'border-emerald-600 ring-2 ring-emerald-500/40'
-                            : 'border-slate-300 hover:border-slate-400'
-                        }`}
-                      >
-                        <img src={url} alt="Avatar" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                        {userAvatar === url && (
-                          <span className="absolute inset-0 bg-emerald-600/30 flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+
               </div>
 
               {/* Permissions Checkboxes */}
@@ -1626,22 +1593,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-1.5 mt-2">
-                  <span className="text-[10px] font-semibold text-slate-500 mr-1">Suggestions :</span>
-                  {PRESET_EQUIPMENT_IMAGES.map((img) => (
-                    <button
-                      key={img}
-                      type="button"
-                      onClick={() => setEqImageUrl(img)}
-                      className={`w-8 h-8 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                        eqImageUrl === img ? 'border-emerald-500 ring-2 ring-emerald-500/30' : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                      title="Utiliser cette photo"
-                    >
-                      <img src={img} alt="Photo suggérée" className="w-full h-full object-cover" loading="lazy" />
-                    </button>
-                  ))}
-                </div>
+
               </div>
 
               <div>

@@ -59,20 +59,11 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
   const sessionStartRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
   const hasSavedRef = useRef(false);
+  // Messages échangés pendant la session : la conversation démarre vide, seule
+  // l'activité réelle (utilisateur + avis technique demandé) y est enregistrée.
   const [chatMessages, setChatMessages] = useState<
     { sender: string; time: string; text: string; isAi?: boolean }[]
-  >([
-    {
-      sender: 'Système Télémédecine',
-      time: '12:00',
-      text: 'Session vidéo sécurisée établie. Canal chiffré HDS & ISO 13485.',
-    },
-    {
-      sender: 'Dr. Bakoly Rakoto (Ingénieur)',
-      time: '12:01',
-      text: 'Bonjour, je vois votre flux vidéo. Pouvez-vous pointer la sonde ou le boîtier d\'alimentation ?',
-    },
-  ]);
+  >([]);
   const [newMessage, setNewMessage] = useState('');
   const [aiDiagnosticAdvice, setAiDiagnosticAdvice] = useState<string | null>(null);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -455,17 +446,6 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
                       isAnnotating ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'
                     }`}
                   />
-
-                  {/* Remote Peer Overlay (Pip) */}
-                  <div className="absolute top-4 right-4 z-10 w-36 sm:w-48 aspect-video bg-slate-900/90 rounded-xl border border-slate-700/80 shadow-2xl overflow-hidden flex flex-col justify-between p-2">
-                    <div className="flex items-center justify-between text-[10px] text-slate-300 font-bold">
-                      <span className="truncate">Dr. Bakoly (Expert)</span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    </div>
-                    <div className="flex-1 flex items-center justify-center text-slate-500 text-xs font-bold">
-                      [Flux Télé-Expert]
-                    </div>
-                  </div>
 
                   {/* Live HUD telemetry badges */}
                   <div className="absolute top-4 left-4 z-10 flex flex-col space-y-1.5 pointer-events-none">

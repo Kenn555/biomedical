@@ -21,11 +21,14 @@ import {
   X,
   Paperclip,
   Mic,
-  Image
+  Image,
+  CheckCheck,
+  Eye
 } from 'lucide-react';
 import { getRoleLabel } from './Header';
 import { can, isRole } from '../lib/permissions';
 import { TICKET_STATUS_OPTIONS, URGENCY_LEVEL_OPTIONS } from '../lib/selectOptions';
+import { isViewed } from '../lib/ticketUtils';
 
 interface TicketListProps {
   tickets: IncidentTicket[];
@@ -38,6 +41,7 @@ interface TicketListProps {
   onAssignTicket: (ticketId: string, technicianId: string) => void;
   onUpdateStatus: (ticketId: string, newStatus: TicketStatus) => void;
   onMarkViewed: (ticketId: string) => void;
+  onMarkAllViewed: (ticketIds: string[]) => void;
   onOpenCreateTicket: () => void;
 }
 
@@ -52,10 +56,11 @@ export const TicketList: React.FC<TicketListProps> = ({
   onAssignTicket,
   onUpdateStatus,
   onMarkViewed,
+  onMarkAllViewed,
   onOpenCreateTicket,
 }) => {
-  const isUnread = (ticket: IncidentTicket) =>
-    !(ticket.viewedBy || []).includes(currentUser.id);
+  const isUnread = (ticket: IncidentTicket) => !isViewed(ticket.viewedBy, currentUser.id);
+  const unreadCount = tickets.filter(isUnread).length;
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('ALL');
@@ -221,6 +226,20 @@ export const TicketList: React.FC<TicketListProps> = ({
               ))}
             </select>
           </div>
+
+          {unreadCount > 0 && (
+            <button
+              onClick={() => onMarkAllViewed(tickets.filter((t) => isUnread(t)).map((t) => t.id))}
+              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer"
+              title={`Marquer les ${unreadCount} ticket(s) non consulté(s) comme lus`}
+            >
+              <CheckCheck className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <span className="hidden sm:inline">Tous marquer comme lu</span>
+              <span className="font-mono bg-white border border-rose-200 text-rose-700 rounded-md px-1.5 py-0.5 text-[10px]">
+                {unreadCount}
+              </span>
+            </button>
+          )}
 
           {filteredTickets.length > 0 && (
             <button
@@ -467,6 +486,40 @@ export const TicketList: React.FC<TicketListProps> = ({
                                   </span>
                                 </div>
                               ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Consultations horodatées (audit) */}
+                        {ticket.viewedBy && ticket.viewedBy.length > 0 && (
+                          <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-2">
+                            <h4 className="text-[11px] font-bold text-slate-700 flex items-center space-x-1.5">
+                              <Eye className="w-3.5 h-3.5 text-sky-500" />
+                              <span>Consultations du ticket ({ticket.viewedBy.length})</span>
+                            </h4>
+                            <div className="space-y-1.5 text-[11px]">
+                              {ticket.viewedBy.map((v, i) => {
+                                const viewer = users.find((u) => u.id === v.id);
+                                return (
+                                  <div
+                                    key={i}
+                                    className="flex items-center justify-between border-b border-slate-100 last:border-0 pb-1"
+                                  >
+                                    <span className="text-slate-700 font-medium">
+                                      {viewer ? viewer.name : v.id}
+                                      {viewer && <span className="text-slate-400"> ({getRoleLabel(viewer.role)})</span>}
+                                    </span>
+                                    <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-2">
+                                      {new Date(v.at).toLocaleString('fr-FR', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}

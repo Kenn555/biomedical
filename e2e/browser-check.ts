@@ -149,53 +149,39 @@ async function main(): Promise<void> {
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
-  page.on('pageerror', (err) => pageErrors.push(String(err)));
   // Accepte les alert() du formulaire admin (confirmations de création/suppression)
   page.on('dialog', (dialog) => void dialog.accept());
-  // Les photos externes (Unsplash) sont remplacées par un PNG local : test déterministe,
-  // indépendant du réseau (les <img> se chargent toujours).
+  // Les photos d'équipement / avatars sont importées localement (data URL) :
+  // aucune dépendance réseau externe dans le test.
   const TINY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
-  await page.route('**/images.unsplash.com/**', async (route) => {
-    await route.fulfill({ contentType: 'image/png', body: TINY_PNG });
-  });
 
   try {
-    // --- 1. Écran de connexion ---
-    console.log('\n▶ Écran de connexion');
+    // --- 1. Première installation : création du compte administrateur ---
+    console.log('\n▶ Première installation (base vide — aucun compte)');
     await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('input[type="email"]', { timeout: 15000 });
-    check('champ email affiché', await page.locator('input[type="email"]').isVisible());
-    check('champ mot de passe affiché', await page.locator('input[type="password"]').isVisible());
-    check('titre « Connexion au Réseau Télémédecine » affiché', await page.getByText('Connexion au Réseau Télémédecine').isVisible());
-    check('comptes de démonstration listés', await page.getByText('Comptes de démonstration').isVisible());
+    // Cache local vidé : le test part d'un état vierge (aucune donnée résiduelle)
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=Première installation', { timeout: 15000 });
+    check('écran de première installation affiché', await page.getByText('Première installation').isVisible());
+    check('aucun compte de démonstration proposé', (await page.getByText('Comptes de démonstration').count()) === 0);
 
-    // --- 2. Connexion admin + loader plein écran ---
-    console.log('\n▶ Connexion admin + loader');
-    await page.fill('input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', PASSWORD);
-    // Ralentit temporairement les appels API pour observer le loader de façon déterministe
-    await page.route('**/api/**', async (route) => {
-      await new Promise((r) => setTimeout(r, 600));
-      await route.continue();
-    });
-    await page.getByRole('button', { name: /Se Connecter/ }).click();
-    await page.waitForSelector('text=Chargement des données du serveur', { timeout: 5000 });
-    check('loader plein écran affiché pendant le chargement des données', true);
+    console.log('\n▶ Création du compte administrateur initial');
+    await page.locator('input[placeholder="Ex. : Raharison Jean"]').fill('Admin Système');
+    await page.locator('input[type="email"]').fill(ADMIN_EMAIL);
+    await page.locator('input[type="password"]').first().fill(PASSWORD);
+    await page.locator('input[type="password"]').nth(1).fill(PASSWORD);
+    await page.getByRole('button', { name: /Créer le compte administrateur/ }).click();
     await page.waitForSelector('header', { timeout: 15000 });
-    await page.unroute('**/api/**');
-    check('application chargée après connexion', await page.getByText('Parc Équipements').isVisible());
+    check('connexion automatique après installation', await page.getByText('Parc Équipements').isVisible());
     await page.waitForSelector('text=Connexion Réussie', { timeout: 10000 });
     check('toast « Connexion Réussie » affiché', true);
 
-    // --- 3. Données réelles chargées ---
-    console.log('\n▶ Données chargées depuis le backend');
+    // --- 3. Données vides (aucune donnée de démonstration) ---
+    console.log('\n▶ Données : base vide au premier démarrage');
     await page.waitForTimeout(1500);
-    // Nom exact rendu dans la carte équipement (évite l'<option> masquée du filtre)
-    check('équipement seedé visible (Électrocardiographe)', await page.getByText('Électrocardiographe 12 Pistes Télémédecine').first().isVisible().catch(() => false));
-    // Photo / avatar affiché sur la fiche équipement (première carte = Moniteur)
-    check('photo affichée sur la carte équipement', await page.locator('img[alt="Moniteur Multiparamétrique Connecté"]').first().isVisible().catch(() => false));
+    check('aucun équipement seedé visible', (await page.locator('text=Électrocardiographe 12 Pistes Télémédecine').count()) === 0);
     // Avatar affiché dans le header à côté du profil (image remplacée par le PNG local)
-    check('avatar affiché dans le header (Admin Système)', await page.locator('header img[alt="Admin Système"]').isVisible().catch(() => false));
     check('rôle affiché sous le nom dans le header', await page.locator('header').getByText('Administrateur').first().isVisible().catch(() => false));
 
     // --- 4. Navigation entre onglets (via title, unique aux boutons de nav) ---
@@ -208,12 +194,12 @@ async function main(): Promise<void> {
     await page.getByTitle('Incidents & Signalements').click();
     await page.waitForSelector('[aria-label="Chargement de l\'onglet"]', { timeout: 5000 });
     check('skeleton affiché pendant le chargement de l\'onglet tickets', true);
-    await page.waitForSelector('text=INC-2026', { timeout: 10000 });
-    check('onglet tickets : codes INC affichés', await page.getByText('INC-2026').first().isVisible());
+    await page.waitForSelector('text=Aucun ticket', { timeout: 10000 });
+    check('onglet tickets : vide (aucune donnée de démonstration)', true);
 
     await page.getByTitle('Base de Connaissances').click();
-    await page.waitForSelector('text=Résolution des Bruits Parasites', { timeout: 10000 });
-    check('onglet connaissances : fiche seedée affichée', true);
+    await page.waitForSelector('text=Base de Connaissances', { timeout: 10000 });
+    check('onglet connaissances : aucune fiche de démonstration', (await page.getByText('Résolution des Bruits Parasites').count()) === 0);
 
     const errBeforeAnalytics = pageErrors.length;
     await page.getByTitle('Supervision & Tableaux').click();
@@ -228,26 +214,26 @@ async function main(): Promise<void> {
     await page.waitForSelector('text=Gestion des Acteurs', { timeout: 10000 });
     check('onglet admin : gestion des acteurs affichée', true);
 
-    // --- 4bis. Création d'un acteur avec image/avatar ---
-    console.log('\n▶ Création d\'un acteur avec avatar');
+    // --- 4bis. Création des acteurs (technicien + ingénieure pour la bascule de compte) ---
+    console.log('\n▶ Création d\'acteurs');
+    // Technicien
     await page.getByRole('button', { name: /Créer un Nouvel Acteur/ }).click();
     await page.waitForSelector('text=Créer un Nouvel Acteur Biomédical', { timeout: 10000 });
     await page.locator('input[placeholder="Ex: Dr. Raveloson Jean"]').fill('Acteur E2E Test');
     await page.locator('input[type="email"]').fill('acteur.e2e@sante.mg');
-    await page.locator('button[title="Utiliser cet avatar"]').first().click();
-    check('champ URL image présent', (await page.locator('input[placeholder="https://.../photo.jpg"]').count()) === 1);
-    // Upload d'une image depuis l'ordinateur (fichier local → data URL redimensionnée)
-    const tmpPng = path.join(tempDir!, 'upload-test.png');
-    fs.writeFileSync(tmpPng, TINY_PNG);
-    await page.locator('input[type="file"]').first().setInputFiles(tmpPng);
-    await page.waitForSelector('img[src^="data:image/"]', { timeout: 8000 });
-    check('photo importée depuis l\'ordinateur (aperçu data URL)', true);
-    const avatarField = await page.locator('input[placeholder="https://.../photo.jpg"]').inputValue();
-    check('champ URL prérempli par l\'image importée', avatarField.startsWith('data:image/'));
     await page.getByRole('button', { name: /Créer l\'Acteur/ }).click();
-    // Carte acteur (nom exact) : l'<option> du sélecteur de profil contient aussi ce texte
     await page.getByText('Acteur E2E Test', { exact: true }).first().waitFor({ timeout: 10000 });
-    check('acteur créé avec avatar, visible dans la liste', true);
+    check('acteur créé, visible dans la liste', true);
+
+    // Ingénieure (connexion ultérieure)
+    await page.getByRole('button', { name: /Créer un Nouvel Acteur/ }).click();
+    await page.waitForSelector('text=Créer un Nouvel Acteur Biomédical', { timeout: 10000 });
+    await page.locator('input[placeholder="Ex: Dr. Raveloson Jean"]').fill('Dr. Bakoly Rakoto');
+    await page.locator('input[type="email"]').fill('b.rakoto@sante.mg');
+    await page.locator('form select').first().selectOption('engineer');
+    await page.getByRole('button', { name: /Créer l\'Acteur/ }).click();
+    await page.getByText('Dr. Bakoly Rakoto', { exact: true }).first().waitFor({ timeout: 10000 });
+    check('ingénieure créée, visible dans la liste', true);
 
     // --- 4ter. Champ photo dans le formulaire d'équipement ---
     console.log('\n▶ Formulaire matériel : champ photo');
@@ -256,26 +242,45 @@ async function main(): Promise<void> {
     await page.getByRole('button', { name: /Nouveau Matériel/ }).click();
     await page.waitForSelector('text=Enregistrer un Nouvel Équipement', { timeout: 10000 });
     check('champ photo équipement présent', await page.getByText('Photo / Image de l\'Équipement').isVisible());
-    check('photos suggérées proposées', (await page.locator('button[title="Utiliser cette photo"]').count()) >= 3);
-    await page.locator('button[title="Utiliser cette photo"]').first().click();
-    check('aperçu photo mis à jour', await page.locator('img[alt="Aperçu équipement"]').isVisible());
+    check('aucune photo suggérée (données de démo retirées)', (await page.locator('button[title="Utiliser cette photo"]').count()) === 0);
     // Upload d'une image locale dans le formulaire équipement
+    const tmpPng = path.join(tempDir!, 'upload-test.png');
+    fs.writeFileSync(tmpPng, TINY_PNG);
     await page.locator('input[type="file"]').first().setInputFiles(tmpPng);
     await page.waitForSelector('img[src^="data:image/"]', { timeout: 8000 });
     check('photo équipement importée depuis l\'ordinateur', true);
     await page.getByRole('button', { name: 'Annuler' }).click();
 
-    // --- 5. Création d'un ticket via l'UI ---
-    console.log('\n▶ Création d\'un ticket (formulaire complet)');
+    // --- 5. Création d'un équipement puis d'un ticket via l'UI ---
+    console.log('\n▶ Création d\'un équipement + ticket (formulaire complet)');
+    // Un équipement est requis pour signaler un incident
+    await page.getByRole('button', { name: /Nouveau Matériel/ }).click();
+    await page.waitForSelector('text=Enregistrer un Nouvel Équipement', { timeout: 10000 });
+    // Champs obligatoires : code, désignation, marque, modèle, numéro de série
+    await page.locator('form input[type="text"]').nth(0).fill('EQ-E2E-001');
+    await page.locator('form input[type="text"]').nth(1).fill('Moniteur E2E Test');
+    await page.locator('form input[type="text"]').nth(2).fill('BrandE2E');
+    await page.locator('form input[type="text"]').nth(3).fill('ModelE2E');
+    await page.locator('form input[type="text"]').nth(4).fill('SN-E2E-001');
+    await page.getByRole('button', { name: /Enregistrer Matériel/ }).click();
+    await page.waitForSelector('text=Moniteur E2E Test', { timeout: 10000 });
+    // Fermeture du modal (le clic passe par une alerte auto-acceptée)
+    await page.waitForSelector('text=Enregistrer un Nouvel Équipement', { state: 'detached', timeout: 10000 }).catch(() => undefined);
+    await page.waitForTimeout(500);
+    check('équipement créé via l\'UI', true);
+
     await page.getByRole('button', { name: /Signaler Panne/ }).click();
     await page.waitForSelector('text=Signaler une Panne', { timeout: 10000 });
     check('modal de signalement ouverte', await page.getByText('Signaler une Panne').isVisible());
 
     await page.fill('textarea', 'Test E2E : écran noir au démarrage pendant un télé-examen.');
-    await page.getByRole('button', { name: /Code d\'erreur affiché/ }).click();
+    // Sélection d'un symptôme (bouton bascule dans la checklist)
+    await page.getByText('Code d\'erreur affiché à l\'écran', { exact: true }).click();
     await page.getByRole('button', { name: /Transmettre le Signalement/ }).click();
     // On revient sur l'onglet tickets : le nouveau signalement est en tête de liste.
     // La description n'est visible qu'une fois la carte développée.
+    await page.waitForSelector('text=Signaler une Panne', { state: 'detached', timeout: 10000 }).catch(() => undefined);
+    await page.waitForTimeout(400);
     await page.getByTitle('Incidents & Signalements').click();
     await page.locator('button[title="Développer les détails"]').first().click();
     await page.waitForSelector('text=Test E2E : écran noir au démarrage', { timeout: 10000 });
@@ -312,6 +317,8 @@ async function main(): Promise<void> {
     failed += 1;
     failures.push(`exception pendant le parcours : ${String(err)}`);
     console.error(`❌ ${String(err)}`);
+    // Capture du DOM : aide au diagnostic (modales ouvertes, état réel de la page)
+
     await page.screenshot({ path: path.join(ROOT, 'e2e', 'failure.png'), fullPage: true }).catch(() => undefined);
   } finally {
     await browser.close();

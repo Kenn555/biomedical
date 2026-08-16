@@ -12,16 +12,6 @@ const MODULE_DIR = ((): string => {
   if (import.meta.url) return path.dirname(fileURLToPath(import.meta.url));
   return __dirname;
 })();
-import {
-  MOCK_USERS,
-  MOCK_EQUIPMENT,
-  MOCK_TICKETS,
-  MOCK_KNOWLEDGE_BASE,
-  MOCK_AUDIT_LOGS,
-  MOCK_INTERVENTION_REPORTS,
-  MOCK_FACILITIES,
-} from '../src/data/mockData';
-
 // Le chemin de la base peut être surchargé via DB_PATH (utilisé par les tests)
 // ou DATA_DIR (dossier de données alternatif).
 const DATA_DIR = process.env.DATA_DIR
@@ -179,12 +169,6 @@ function migrateEquipmentImageUrl(): void {
   const cols = db.prepare('PRAGMA table_info(equipment)').all() as { name: string }[];
   if (cols.some((c) => c.name === 'imageUrl')) return;
   db.prepare('ALTER TABLE equipment ADD COLUMN imageUrl TEXT').run();
-  // Rétro-remplissage : associe la photo du seed aux équipements existants
-  for (const eq of MOCK_EQUIPMENT) {
-    if (eq.imageUrl) {
-      db.prepare('UPDATE equipment SET imageUrl = ? WHERE id = ?').run(eq.imageUrl, eq.id);
-    }
-  }
 }
 migrateEquipmentImageUrl();
 
@@ -380,52 +364,46 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Seed
+// Première installation (aucune donnée de démonstration n'est seedée : la
+// base démarre vide et le premier compte administrateur est créé via l'écran
+// de première installation, ou directement par l'API POST /api/setup).
 // ---------------------------------------------------------------------------
-function isSeeded(): boolean {
+export function needsSetup(): boolean {
   const row = db.prepare('SELECT COUNT(*) AS count FROM users').get() as { count: number };
-  return row.count > 0;
+  return row.count === 0;
 }
 
-export function seedDatabase(): void {
-  if (isSeeded()) return;
-
-  const DEFAULT_PASSWORD = process.env.DEFAULT_PASSWORD || 'biomed123';
-  const passwordHash = hashPassword(DEFAULT_PASSWORD);
-
-  for (const user of MOCK_USERS) {
-    insertRow('users', { ...(user as unknown as Record<string, unknown>), password_hash: passwordHash });
-  }
-
-  for (const eq of MOCK_EQUIPMENT) {
-    insertRow('equipment', eq as unknown as Record<string, unknown>);
-  }
-
-  for (const tkt of MOCK_TICKETS) {
-    insertRow('tickets', tkt as unknown as Record<string, unknown>);
-  }
-
-  for (const art of MOCK_KNOWLEDGE_BASE) {
-    insertRow('knowledge', art as unknown as Record<string, unknown>);
-  }
-
-  for (const log of MOCK_AUDIT_LOGS) {
-    insertRow('audit', log as unknown as Record<string, unknown>);
-  }
-
-  for (const rep of MOCK_INTERVENTION_REPORTS) {
-    insertRow('reports', rep as unknown as Record<string, unknown>);
-  }
-
-  for (const facility of MOCK_FACILITIES) {
-    insertRow('facilities', { name: facility });
-  }
+export function createInitialAdmin(data: {
+  name: string;
+  email: string;
+  password: string;
+  title?: string;
+  facility?: string;
+}): { id: string; name: string; email: string; role: string } {
+  const user = insertRow('users', {
+    id: `usr-${Date.now()}`,
+    name: data.name,
+    email: data.email,
+    role: 'admin',
+    title: data.title || 'Administrateur',
+    facility: data.facility || 'Établissement principal',
+    avatar: '',
+    phone: '',
+    password_hash: hashPassword(data.password),
+    permissions: {
+      canReportIncident: true,
+      canRunDiagnostic: true,
+      canCloseIntervention: true,
+      canManageEquipment: true,
+      canManageUsers: true,
+    },
+  });
+  return { id: user.id as string, name: user.name as string, email: user.email as string, role: user.role as string };
 }
 
 export function resetDatabase(): void {
-  const tables = ['users', 'equipment', 'tickets', 'knowledge_articles', 'intervention_reports', 'audit_logs', 'facilities', 'sessions'];
+  const tables = ['users', 'equipment', 'tickets', 'knowledge_articles', 'intervention_reports', 'audit_logs', 'facilities', 'video_sessions', 'sessions'];
   for (const t of tables) {
     db.prepare(`DELETE FROM ${t}`).run();
   }
-  seedDatabase();
 }
