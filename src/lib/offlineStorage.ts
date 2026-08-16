@@ -1,3 +1,4 @@
+
 import { Equipment, IncidentTicket, KnowledgeArticle, AuditLog } from '../types';
 
 const STORAGE_KEYS = {
