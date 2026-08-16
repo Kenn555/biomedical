@@ -205,6 +205,22 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     }
   };
 
+  // Reset Password (le mot de passe est envoyé au backend qui le hache)
+  const handleResetPasswordClick = (user: UserProfile) => {
+    const newPassword = window.prompt(
+      `Nouveau mot de passe pour "${user.name}" (${user.email}) :\n\n6 caractères minimum.`,
+      ''
+    );
+    if (newPassword === null) return; // annulé
+    const trimmed = newPassword.trim();
+    if (trimmed.length < 6) {
+      alert('Le mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
+    if (onUpdateUser) onUpdateUser(user, trimmed);
+    alert(`Le mot de passe de ${user.name} a été réinitialisé.`);
+  };
+
   // Open Equipment Modal for Create/Edit
   const handleOpenEqModal = (eq?: Equipment) => {
     if (eq) {
@@ -504,8 +520,17 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                     {perms.canManageUsers && <span className="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-md font-bold">Gestion Admin</span>}
                   </div>
 
-                  {/* Actions Buttons: Modifier / Supprimer */}
+                  {/* Actions Buttons: Réinitialiser mdp / Modifier / Supprimer */}
                   <div className="flex items-center space-x-2 pt-2 border-t border-slate-200/80">
+                    <button
+                      onClick={() => handleResetPasswordClick(u)}
+                      className="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer"
+                      title="Réinitialiser le mot de passe de cet utilisateur"
+                    >
+                      <Key className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Réinit. mdp</span>
+                    </button>
+
                     <button
                       onClick={() => handleOpenUserModal(u)}
                       className="flex-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer"
