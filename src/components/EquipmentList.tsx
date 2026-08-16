@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Equipment, EquipmentCategory, EquipmentStatus, UserProfile } from '../types';
+import { Equipment, UserProfile } from '../types';
 import { EquipmentCard } from './EquipmentCard';
 import { Search, Filter, Activity, AlertTriangle, CheckCircle, Wrench, RefreshCw, Plus, X } from 'lucide-react';
+import { EQUIPMENT_CATEGORY_OPTIONS, EQUIPMENT_STATUS_OPTIONS } from '../lib/selectOptions';
 
 interface EquipmentListProps {
   equipmentList: Equipment[];
@@ -151,12 +152,11 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
               className="bg-transparent text-slate-900 font-semibold border-none focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-white">Toutes Catégories</option>
-              <option value="moniteur" className="bg-white">Moniteurs Multiparamétriques</option>
-              <option value="ecg" className="bg-white">Électrocardiographes (ECG)</option>
-              <option value="echographe" className="bg-white">Échographes Portables</option>
-              <option value="oxymetre" className="bg-white">Oxymètres de Pouls</option>
-              <option value="pompe" className="bg-white">Pompes à Perfusion</option>
-              <option value="telesurveillance" className="bg-white">Télésurveillance</option>
+              {EQUIPMENT_CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-white">
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -167,11 +167,11 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
               className="bg-transparent text-slate-900 font-semibold border-none focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-white">Tous les Statuts</option>
-              <option value="operational" className="bg-white">Opérationnel</option>
-              <option value="degraded" className="bg-white">Mode Dégradé</option>
-              <option value="breakdown" className="bg-white">En Panne</option>
-              <option value="in_maintenance" className="bg-white">En Maintenance</option>
-              <option value="critical" className="bg-white">Urgence Vitale</option>
+              {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-white">
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
 

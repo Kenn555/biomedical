@@ -849,6 +849,7 @@ export default function App() {
               users={users}
               auditLogs={auditLogs}
               equipmentList={equipmentList}
+              facilities={facilities}
               canManageUsers={can(currentUser, 'canManageUsers')}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}

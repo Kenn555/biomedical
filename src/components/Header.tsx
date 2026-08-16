@@ -14,8 +14,10 @@ import {
   Video,
   LogOut
 } from 'lucide-react';
-import { UserProfile, UserRole } from '../types';
+import { UserProfile } from '../types';
 import { can } from '../lib/permissions';
+import { getRoleLabel } from '../lib/selectOptions';
+export { getRoleLabel } from '../lib/selectOptions';
 
 interface HeaderProps {
   currentUser: UserProfile;
@@ -253,25 +255,3 @@ const NavButton: React.FC<NavButtonProps> = ({ active, onClick, label, icon, bad
   </button>
 );
 
-export function getRoleLabel(role: UserRole): string {
-  switch (role) {
-    case 'technician':
-      return 'Technicien Biomédical';
-    case 'engineer':
-      return 'Ingénieur Biomédical';
-    case 'doctor':
-      return 'Médecin / Utilisateur';
-    case 'nurse':
-      return 'Infirmier(ère)';
-    case 'manager':
-      return 'Responsable Maintenance';
-    case 'director':
-      return 'Directrice Établissement';
-    case 'vendor':
-      return 'Fournisseur Externe';
-    case 'admin':
-      return 'Administrateur';
-    default:
-      return role;
-  }
-}

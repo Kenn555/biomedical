@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react';
 import { getCategoryLabel } from './EquipmentCard';
+import { EQUIPMENT_CATEGORY_OPTIONS } from '../lib/selectOptions';
 
 interface KnowledgeBaseProps {
   articles: KnowledgeArticle[];
@@ -116,11 +117,11 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ articles, onAddArt
               className="bg-transparent text-slate-800 font-semibold border-none focus:outline-none cursor-pointer"
             >
               <option value="ALL" className="bg-white">Toutes Catégories</option>
-              <option value="ecg" className="bg-white">Électrocardiographes (ECG)</option>
-              <option value="pompe" className="bg-white">Pompes à Perfusion</option>
-              <option value="echographe" className="bg-white">Échographes Portables</option>
-              <option value="moniteur" className="bg-white">Moniteurs Multiparamétriques</option>
-              <option value="oxymetre" className="bg-white">Oxymètres de Pouls</option>
+              {EQUIPMENT_CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-white">
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -254,11 +255,11 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ articles, onAddArt
                     onChange={(e) => setCategory(e.target.value as EquipmentCategory)}
                     className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none"
                   >
-                    <option value="ecg">ECG</option>
-                    <option value="pompe">Pompe à perfusion</option>
-                    <option value="echographe">Échographe</option>
-                    <option value="moniteur">Moniteur</option>
-                    <option value="oxymetre">Oxymètre</option>
+                    {EQUIPMENT_CATEGORY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

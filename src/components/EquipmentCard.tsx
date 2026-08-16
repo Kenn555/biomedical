@@ -1,6 +1,8 @@
 import React from 'react';
-import { Equipment, EquipmentCategory, EquipmentStatus, UserProfile } from '../types';
+import { Equipment, EquipmentStatus, UserProfile } from '../types';
 import { can } from '../lib/permissions';
+import { getCategoryLabel } from '../lib/selectOptions';
+export { getCategoryLabel } from '../lib/selectOptions';
 import {
   Battery,
   Wifi,
@@ -240,21 +242,3 @@ export const EquipmentThumb: React.FC<{
   );
 };
 
-export function getCategoryLabel(category: EquipmentCategory): string {
-  switch (category) {
-    case 'moniteur':
-      return 'Moniteur Multiparamétrique';
-    case 'ecg':
-      return 'Électrocardiographe (ECG)';
-    case 'echographe':
-      return 'Échographe Portable';
-    case 'oxymetre':
-      return 'Oxymètre de Pouls';
-    case 'pompe':
-      return 'Pompe à Perfusion';
-    case 'telesurveillance':
-      return 'Télésurveillance';
-    default:
-      return category;
-  }
-}

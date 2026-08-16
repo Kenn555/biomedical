@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { getRoleLabel } from './Header';
 import { can, isRole } from '../lib/permissions';
+import { TICKET_STATUS_OPTIONS, URGENCY_LEVEL_OPTIONS } from '../lib/selectOptions';
 
 interface TicketListProps {
   tickets: IncidentTicket[];
@@ -191,12 +192,11 @@ export const TicketList: React.FC<TicketListProps> = ({
               className="bg-transparent text-slate-900 font-semibold border-none focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-white">Tous les Statuts</option>
-              <option value="new" className="bg-white">Nouveau / Signalé</option>
-              <option value="diagnosed" className="bg-white">Diagnostiqué</option>
-              <option value="in_progress" className="bg-white">Intervention en cours</option>
-              <option value="waiting_part" className="bg-white">Attente pièce</option>
-              <option value="resolved" className="bg-white">Résolu</option>
-              <option value="validated" className="bg-white">Validé</option>
+              {TICKET_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-white">
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -207,10 +207,11 @@ export const TicketList: React.FC<TicketListProps> = ({
               className="bg-transparent text-slate-900 font-semibold border-none focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-white">Toutes Urgences</option>
-              <option value="critical_vital" className="bg-white">URGENCE VITALE</option>
-              <option value="high" className="bg-white">Priorité Élevée</option>
-              <option value="medium" className="bg-white">Priorité Modérée</option>
-              <option value="low" className="bg-white">Faible</option>
+              {URGENCY_LEVEL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-white">
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -494,12 +495,11 @@ export const TicketList: React.FC<TicketListProps> = ({
                                 onChange={(e) => onUpdateStatus(ticket.id, e.target.value as TicketStatus)}
                                 className="bg-slate-50 text-xs font-bold text-emerald-700 border-none rounded-lg px-2.5 py-1.5 w-full focus:outline-none cursor-pointer"
                               >
-                                <option value="new">Nouveau / Signalé</option>
-                                <option value="diagnosed">Diagnostiqué</option>
-                                <option value="in_progress">Intervention en Cours</option>
-                                <option value="waiting_part">Attente Pièce Détachée</option>
-                                <option value="resolved">Résolu (Test Réussi)</option>
-                                <option value="validated">Validé par Ingénieur</option>
+                                {TICKET_STATUS_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
                               </select>
                             </div>
                           )}

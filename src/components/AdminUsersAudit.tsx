@@ -22,11 +22,18 @@ import {
 } from 'lucide-react';
 import { getRoleLabel } from './Header';
 import { ImageUploadButton } from './ImageUploadButton';
+import {
+  USER_ROLE_OPTIONS,
+  EQUIPMENT_CATEGORY_OPTIONS,
+  EQUIPMENT_STATUS_OPTIONS,
+} from '../lib/selectOptions';
 
 interface AdminUsersAuditProps {
   users: UserProfile[];
   auditLogs: AuditLog[];
   equipmentList: Equipment[];
+  /** Liste des établissements enregistrés (servant de référence aux formulaires) */
+  facilities?: string[];
   /** false pour un ingénieur/manager : seuls les admins gèrent acteurs & audit */
   canManageUsers?: boolean;
   /** password : à la création c'est le mot de passe initial ; en modification, vide = inchangé */
@@ -42,6 +49,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
   users,
   auditLogs,
   equipmentList,
+  facilities = [],
   canManageUsers = true,
   onAddUser,
   onUpdateUser,
@@ -195,6 +203,12 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     }
 
     setIsUserModalOpen(false);
+  };
+
+  // Options d'établissement : liste serveur + valeur courante si absente
+  const facilityOptionList = (current: string): (string | { value: string; label: string })[] => {
+    if (facilities.includes(current)) return facilities;
+    return [current, ...facilities];
   };
 
   // Delete User
@@ -465,14 +479,11 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 className="bg-transparent font-semibold text-slate-800 border-none focus:outline-none cursor-pointer"
               >
                 <option value="ALL">Tous les Rôles</option>
-                <option value="technician">Technicien Biomédical</option>
-                <option value="engineer">Ingénieur Biomédical</option>
-                <option value="doctor">Médecin / Utilisateur</option>
-                <option value="nurse">Infirmier(ère)</option>
-                <option value="manager">Responsable Maintenance</option>
-                <option value="director">Directeur d'Établissement</option>
-                <option value="vendor">Fournisseur Externe</option>
-                <option value="admin">Administrateur Système</option>
+                {USER_ROLE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -697,12 +708,11 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 className="bg-transparent font-semibold text-slate-800 border-none focus:outline-none cursor-pointer"
               >
                 <option value="ALL">Toutes les Catégories</option>
-                <option value="moniteur">Moniteur Multiparamétrique</option>
-                <option value="ecg">Électrocardiographe (ECG)</option>
-                <option value="echographe">Échographe Portable</option>
-                <option value="oxymetre">Oxymètre de Pouls</option>
-                <option value="pompe">Pompe à Perfusion</option>
-                <option value="telesurveillance">Télésurveillance</option>
+                {EQUIPMENT_CATEGORY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -846,14 +856,11 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                     onChange={(e) => setUserRole(e.target.value as UserRole)}
                     className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border-none rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:bg-white transition-all shadow-2xs cursor-pointer font-semibold"
                   >
-                    <option value="technician">Technicien Biomédical</option>
-                    <option value="engineer">Ingénieur Biomédical</option>
-                    <option value="doctor">Médecin / Utilisateur</option>
-                    <option value="nurse">Infirmier(ère)</option>
-                    <option value="manager">Responsable Maintenance</option>
-                    <option value="director">Directeur d'Établissement</option>
-                    <option value="vendor">Fournisseur Externe</option>
-                    <option value="admin">Administrateur Système</option>
+                    {USER_ROLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -871,12 +878,23 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
 
               <div>
                 <label className="font-bold text-slate-900 block mb-1">Établissement d'Affectation</label>
-                <input
-                  type="text"
+                <select
                   value={userFacility}
                   onChange={(e) => setUserFacility(e.target.value)}
-                  className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs"
-                />
+                  className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs cursor-pointer font-semibold"
+                >
+                  {facilityOptionList(userFacility).map((fac) =>
+                    typeof fac === 'string' ? (
+                      <option key={fac} value={fac}>
+                        {fac}
+                      </option>
+                    ) : (
+                      <option key={fac.value} value={fac.value}>
+                        {fac.label}
+                      </option>
+                    )
+                  )}
+                </select>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1101,12 +1119,11 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                     onChange={(e) => setEqCategory(e.target.value as EquipmentCategory)}
                     className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
                   >
-                    <option value="moniteur">Moniteur Multiparamétrique</option>
-                    <option value="ecg">Électrocardiographe (ECG)</option>
-                    <option value="echographe">Échographe Portable</option>
-                    <option value="oxymetre">Oxymètre de Pouls</option>
-                    <option value="pompe">Pompe à Perfusion</option>
-                    <option value="telesurveillance">Télésurveillance</option>
+                    {EQUIPMENT_CATEGORY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1164,12 +1181,23 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-900 block mb-1">Établissement</label>
-                  <input
-                    type="text"
+                  <select
                     value={eqFacility}
                     onChange={(e) => setEqFacility(e.target.value)}
-                    className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
-                  />
+                    className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:outline-none cursor-pointer font-semibold"
+                  >
+                    {facilityOptionList(eqFacility).map((fac) =>
+                      typeof fac === 'string' ? (
+                        <option key={fac} value={fac}>
+                          {fac}
+                        </option>
+                      ) : (
+                        <option key={fac.value} value={fac.value}>
+                          {fac.label}
+                        </option>
+                      )
+                    )}
+                  </select>
                 </div>
 
                 <div>
@@ -1190,11 +1218,11 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                   onChange={(e) => setEqStatus(e.target.value as EquipmentStatus)}
                   className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:outline-none font-bold"
                 >
-                  <option value="operational">Opérationnel (Nominal)</option>
-                  <option value="degraded">Performance Dégradée</option>
-                  <option value="breakdown">En Panne</option>
-                  <option value="in_maintenance">En Maintenance Preventive</option>
-                  <option value="critical">CRITIQUE (Arrêt Réseau)</option>
+                  {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
