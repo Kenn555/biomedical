@@ -94,6 +94,8 @@ export const api = {
     apiFetch<{ ticket: IncidentTicket }>(`/api/tickets/${id}`, { method: 'PUT', body: JSON.stringify(data) }).then(
       (d) => d.ticket
     ),
+  markTicketViewed: (id: string) =>
+    apiFetch<{ ticket: IncidentTicket }>(`/api/tickets/${id}/viewed`, { method: 'PUT' }).then((d) => d.ticket),
   deleteTicket: (id: string) => apiFetch<{ success: boolean }>(`/api/tickets/${id}`, { method: 'DELETE' }),
 
   // --- Knowledge base ---
@@ -132,6 +134,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(session),
     }).then((d) => d.session),
+  markVideoSessionViewed: (id: string) =>
+    apiFetch<{ session: VideoSession }>(`/api/video-sessions/${id}/viewed`, { method: 'PUT' }).then((d) => d.session),
   deleteVideoSession: (id: string) =>
     apiFetch<{ success: boolean }>(`/api/video-sessions/${id}`, { method: 'DELETE' }),
 

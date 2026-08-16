@@ -8,7 +8,8 @@ import {
   TicketStatus,
   UrgencyLevel,
   InterventionReport,
-  VideoSession
+  VideoSession,
+  InvitedParticipant
 } from './types';
 import {
   MOCK_USERS,
@@ -28,6 +29,7 @@ import { TeleMaintenanceSession } from './components/TeleMaintenanceSession';
 import { InterventionModal } from './components/InterventionModal';
 import { AiAssistantDrawer } from './components/AiAssistantDrawer';
 import { VideoConferenceModal } from './components/VideoConferenceModal';
+import { VideoCallSetupModal } from './components/VideoCallSetupModal';
 import { ToastContainer, Toast } from './components/ToastContainer';
 import { OfflineBanner } from './components/OfflineBanner';
 import { LoginScreen } from './components/LoginScreen';
@@ -96,6 +98,13 @@ export default function App() {
   );
 
   const [selectedFacility, setSelectedFacility] = useState<string>('ALL');
+
+  // Ouvre l'écran de préparation d'appel (sélection des acteurs/établissements)
+  const openVideoSetup = (ticket: IncidentTicket | null = null) => {
+    setSelectedTicketForVideoCall(ticket);
+    setInvitedParticipants([]);
+    setIsVideoSetupOpen(true);
+  };
   const [activeTab, setActiveTab] = useState<string>('equipment');
 
   // Modals state
@@ -108,6 +117,9 @@ export default function App() {
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState<boolean>(false);
   const [isVideoConferenceOpen, setIsVideoConferenceOpen] = useState<boolean>(false);
   const [selectedTicketForVideoCall, setSelectedTicketForVideoCall] = useState<IncidentTicket | null>(null);
+  // Préparation de l'appel : sélection des acteurs/établissements + notification bloquante
+  const [isVideoSetupOpen, setIsVideoSetupOpen] = useState<boolean>(false);
+  const [invitedParticipants, setInvitedParticipants] = useState<InvitedParticipant[]>([]);
 
   // Toast Notifications State
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -377,6 +389,52 @@ export default function App() {
           "L'affectation sera transmise au serveur lors du rétablissement du réseau."
         );
       }
+    }
+  };
+
+  // Marque une session vidéo comme consultée (cloche d'appels entrants)
+  const handleMarkCallViewed = async (sessionId: string) => {
+    const session = videoSessions.find((s) => s.id === sessionId);
+    if (!session || (session.viewedBy || []).includes(currentUser.id)) return;
+    setVideoSessions((prev) =>
+      prev.map((s) =>
+        s.id === sessionId ? { ...s, viewedBy: [...(s.viewedBy || []), currentUser.id] } : s
+      )
+    );
+    try {
+      const updated = await api.markVideoSessionViewed(sessionId);
+      setVideoSessions((prev) => prev.map((s) => (s.id === sessionId ? updated : s)));
+    } catch {
+      // Serveur injoignable : l'état local reste marqué comme lu
+    }
+  };
+
+  // Rejoindre / rappeler depuis la cloche : relance la préparation d'appel
+  // avec le contexte (ticket) et les participants invités de la session.
+  const handleJoinIncomingCall = (session: VideoSession) => {
+    const tkt = session.ticketCode
+      ? tickets.find((t) => t.code === session.ticketCode) || null
+      : null;
+    setSelectedTicketForVideoCall(tkt);
+    setInvitedParticipants((session.participants || []).filter((p) => p.id !== currentUser.id));
+    setIsVideoSetupOpen(true);
+  };
+
+  // Marque un ticket comme consulté par l'utilisateur courant (badge « non lu »)
+  const handleMarkTicketViewed = async (ticketId: string) => {
+    const tkt = tickets.find((t) => t.id === ticketId);
+    if (!tkt || (tkt.viewedBy || []).includes(currentUser.id)) return;
+    // Optimiste : le badge se met à jour immédiatement
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === ticketId ? { ...t, viewedBy: [...(t.viewedBy || []), currentUser.id] } : t
+      )
+    );
+    try {
+      const updated = await api.markTicketViewed(ticketId);
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? updated : t)));
+    } catch {
+      // Serveur injoignable : l'état local reste marqué comme lu
     }
   };
 
@@ -824,7 +882,8 @@ export default function App() {
     setCurrentUser(MOCK_USERS.find((u) => u.role === 'admin') || MOCK_USERS[0]);
   };
 
-  const pendingTicketsCount = tickets.filter((t) => t.status !== 'validated' && t.status !== 'resolved').length;
+  // Indicateur « Incidents & Signalements » = nombre de tickets pas encore vus/lus
+  const pendingTicketsCount = tickets.filter((t) => !(t.viewedBy || []).includes(currentUser.id)).length;
 
   // Gate de connexion : l'application n'est accessible qu'après authentification
   if (!isAuthenticated) {
@@ -863,15 +922,15 @@ export default function App() {
         onSelectFacility={setSelectedFacility}
         onOpenReportModal={() => setIsReportModalOpen(true)}
         onToggleAiDrawer={() => setIsAiDrawerOpen(!isAiDrawerOpen)}
-        onOpenVideoCall={() => {
-          setSelectedTicketForVideoCall(null);
-          setIsVideoConferenceOpen(true);
-        }}
+        onOpenVideoCall={() => openVideoSetup(null)}
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
         pendingTicketsCount={pendingTicketsCount}
         isOnline={isOnline}
         isSimulatedOffline={isSimulatedOffline}
+        incomingCallSessions={videoSessions}
+        onMarkCallViewed={handleMarkCallViewed}
+        onJoinIncomingCall={handleJoinIncomingCall}
       />
 
       {/* Role Context Bar */}
@@ -913,14 +972,14 @@ export default function App() {
               }
             }}
             onOpenTeleSession={(tkt) => {
-              // Ouvre uniquement la visioconférence (avec le contexte du ticket),
-              // pas la session de télé-maintenance qui s'ouvre depuis les cartes équipement.
-              setSelectedTicketForVideoCall(tkt);
-              setIsVideoConferenceOpen(true);
+              // Préparation de l'appel d'abord (sélection des acteurs/établissements),
+              // puis la visioconférence avec le contexte du ticket.
+              openVideoSetup(tkt);
             }}
             onOpenInterventionReport={(tkt) => setSelectedTicketForReport(tkt)}
             onAssignTicket={handleAssignTicket}
             onUpdateStatus={handleUpdateTicketStatus}
+            onMarkViewed={handleMarkTicketViewed}
             onOpenCreateTicket={() => setIsReportModalOpen(true)}
           />
         )}
@@ -1048,17 +1107,35 @@ export default function App() {
         selectedEquipment={selectedEquipmentForModal || selectedEquipmentForDiag}
       />
 
+      <VideoCallSetupModal
+        isOpen={isVideoSetupOpen}
+        onClose={() => setIsVideoSetupOpen(false)}
+        currentUser={currentUser}
+        users={users}
+        facilities={facilities}
+        ticket={selectedTicketForVideoCall}
+        equipment={selectedEquipmentForTeleSession || selectedEquipmentForModal}
+        defaultSelectedIds={invitedParticipants.map((p) => p.id)}
+        onStartCall={(invited) => {
+          setInvitedParticipants(invited);
+          setIsVideoSetupOpen(false);
+          setIsVideoConferenceOpen(true);
+        }}
+      />
+
       <VideoConferenceModal
         isOpen={isVideoConferenceOpen}
         onClose={() => {
           setIsVideoConferenceOpen(false);
           setSelectedTicketForVideoCall(null);
+          setInvitedParticipants([]);
           // Recharge l'historique des sessions enregistrées
           api.getVideoSessions().then(setVideoSessions).catch(() => {});
         }}
         ticket={selectedTicketForVideoCall}
         equipment={selectedEquipmentForTeleSession || selectedEquipmentForModal}
         currentUser={currentUser}
+        invitedParticipants={invitedParticipants}
       />
 
       {/* Footer */}

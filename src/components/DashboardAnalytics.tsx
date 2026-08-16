@@ -498,7 +498,7 @@ export const DashboardAnalytics: React.FC<DashboardAnalyticsProps> = ({
                 <p className="font-bold text-slate-900">Économie Estimée sur le Budget Transport</p>
                 <p className="text-[10px] text-slate-500 font-medium">Évite les trajets en brousse / hélicoptère</p>
               </div>
-              <span className="text-emerald-600 font-extrabold text-base">14 500 €</span>
+              <span className="text-emerald-600 font-extrabold text-base">318 000 000 Ar</span>
             </div>
           </div>
         </div>

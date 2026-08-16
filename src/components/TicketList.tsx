@@ -37,6 +37,7 @@ interface TicketListProps {
   onOpenInterventionReport: (ticket: IncidentTicket) => void;
   onAssignTicket: (ticketId: string, technicianId: string) => void;
   onUpdateStatus: (ticketId: string, newStatus: TicketStatus) => void;
+  onMarkViewed: (ticketId: string) => void;
   onOpenCreateTicket: () => void;
 }
 
@@ -50,17 +51,23 @@ export const TicketList: React.FC<TicketListProps> = ({
   onOpenInterventionReport,
   onAssignTicket,
   onUpdateStatus,
+  onMarkViewed,
   onOpenCreateTicket,
 }) => {
+  const isUnread = (ticket: IncidentTicket) =>
+    !(ticket.viewedBy || []).includes(currentUser.id);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('ALL');
   const [expandedTicketIds, setExpandedTicketIds] = useState<string[]>([]);
 
   const toggleExpand = (ticketId: string) => {
-    setExpandedTicketIds((prev) =>
-      prev.includes(ticketId) ? prev.filter((id) => id !== ticketId) : [...prev, ticketId]
-    );
+    setExpandedTicketIds((prev) => {
+      const isOpening = !prev.includes(ticketId);
+      // La consultation d'un ticket le marque comme « lu »
+      if (isOpening) onMarkViewed(ticketId);
+      return isOpening ? [...prev, ticketId] : prev.filter((id) => id !== ticketId);
+    });
   };
 
   const toggleExpandAll = () => {
@@ -276,13 +283,21 @@ export const TicketList: React.FC<TicketListProps> = ({
                 {/* COMPACT SUMMARY HEADER ROW - ALWAYS VISIBLE */}
                 <div
                   onClick={() => toggleExpand(ticket.id)}
-                  className="p-3.5 sm:px-5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-slate-50/80 transition-colors select-none"
+                  className={`p-3.5 sm:px-5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-slate-50/80 transition-colors select-none ${
+                    isUnread(ticket) ? 'bg-rose-50/60' : ''
+                  }`}
                 >
                   {/* Left Column: Code, Equipment, Facility, Reported */}
                   <div className="flex items-center space-x-3 min-w-0">
                     <span className="font-mono text-xs font-bold bg-slate-900 text-white px-2.5 py-1 rounded-lg shrink-0">
                       {ticket.code}
                     </span>
+                    {isUnread(ticket) && (
+                      <span
+                        className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0"
+                        title="Non consulté"
+                      />
+                    )}
 
                     <div className="min-w-0">
                       <div className="flex items-center space-x-2 flex-wrap">

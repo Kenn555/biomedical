@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { IncidentTicket, Equipment, UserProfile, VideoSession } from '../types';
+import { IncidentTicket, Equipment, UserProfile, VideoSession, InvitedParticipant } from '../types';
 import { api } from '../lib/api';
 import {
   Video,
@@ -34,6 +34,8 @@ interface VideoConferenceModalProps {
   ticket?: IncidentTicket | null;
   equipment?: Equipment | null;
   currentUser: UserProfile;
+  /** Acteurs invités à l'appel (choisis dans l'écran de préparation) */
+  invitedParticipants?: InvitedParticipant[];
 }
 
 export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
@@ -42,6 +44,7 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
   ticket,
   equipment,
   currentUser,
+  invitedParticipants = [],
 }) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -85,10 +88,11 @@ export const VideoConferenceModal: React.FC<VideoConferenceModalProps> = ({
     ? `BioMed-${ticket.code}`
     : `BioMed-Room-${equipment ? equipment.code : 'General'}`;
 
-  // Acteurs présents dans la session : l'utilisateur connecté + le télé-expert distant
+  // Acteurs présents dans la session : l'utilisateur connecté + les acteurs invités
+  // (choisis dans l'écran de préparation — par acteur ou par établissement)
   const sessionParticipants = [
     { id: currentUser.id, name: currentUser.name, role: currentUser.role },
-    { id: 'usr-eng-01', name: 'Dr. Bakoly Rakoto (Ingénieur)', role: 'engineer' },
+    ...invitedParticipants,
   ];
 
   // Démarre le chrono de session et la caméra WebRTC à l'ouverture

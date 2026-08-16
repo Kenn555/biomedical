@@ -435,6 +435,18 @@ async function testVideoSessions(admin: CookieJar): Promise<void> {
   check('participants enregistrés', (created.data?.session?.participants as any[] || []).length === 2);
   check('messages enregistrés', (created.data?.session?.messages as any[] || []).length === 2);
   check('créateur renseigné', created.data?.session?.createdBy?.id === 'usr-adm-01');
+  check('session vue par son créateur', (created.data?.session?.viewedBy as string[] || []).includes('usr-adm-01'));
+
+  // Notifications d'appel entrant : un autre acteur la consulte via la cloche
+  const tech = await loginAs(TECH_EMAIL, PASSWORD);
+  if (tech) {
+    const viewed = await api('PUT', `/video-sessions/${created.data?.session?.id}/viewed`, tech);
+    check('marquage session vue → 200', viewed.status === 200);
+    check('viewedBy contient le technicien',
+      (viewed.data?.session?.viewedBy as string[] || []).includes('usr-tech-01'));
+  }
+  const missing = await api('PUT', '/video-sessions/vs-inconnu/viewed', admin);
+  check('marquage session inexistante → 404', missing.status === 404);
 
   const list = await api('GET', '/video-sessions', admin);
   const found = (list.data?.sessions as any[] || []).find((s: any) => s.roomName === 'BioMed-INC-TEST-01');
@@ -448,6 +460,45 @@ async function testVideoSessions(admin: CookieJar): Promise<void> {
   const vsid: string = created.data?.session?.id;
   const del = await api('DELETE', `/video-sessions/${vsid}`, admin);
   check('delete session → 200', del.status === 200);
+}
+
+async function testTicketViewed(admin: CookieJar): Promise<void> {
+  console.log('\n▶ Tickets non lus (badge Incidents & Signalements)');
+
+  // Création d'un ticket : le signalant le « voit » immédiatement
+  const created = await api('POST', '/tickets', admin, {
+    equipmentId: 'eq-02',
+    description: 'Ticket non-lu test',
+    symptoms: ['Test'],
+    urgency: 'low',
+  });
+  check('create ticket → 200', created.status === 200);
+  const tid: string = created.data?.ticket?.id;
+  check('ticket créé vu par son auteur', (created.data?.ticket?.viewedBy as string[] || []).includes('usr-adm-01'));
+
+  // Un technicien ne l'a pas encore vu : compté non lu
+  const tech = await loginAs(TECH_EMAIL, PASSWORD);
+  check('login technicien → session', tech !== null);
+  if (tech) {
+    const list = await api('GET', '/tickets', tech);
+    const tkt = (list.data?.tickets as any[] || []).find((t: any) => t.id === tid);
+    check('ticket non lu pour le technicien', !(tkt?.viewedBy as string[] || []).includes('usr-tech-01'));
+
+    const viewed = await api('PUT', `/tickets/${tid}/viewed`, tech);
+    check('marquage vu → 200', viewed.status === 200);
+    check('viewedBy contient le technicien', (viewed.data?.ticket?.viewedBy as string[] || []).includes('usr-tech-01'));
+
+    const again = await api('PUT', `/tickets/${tid}/viewed`, tech);
+    check('marquage idempotent (pas de doublon)',
+      (again.data?.ticket?.viewedBy as string[] || []).filter((id: string) => id === 'usr-tech-01').length === 1);
+  }
+
+  const missing = await api('PUT', '/tickets/tkt-inconnu/viewed', admin);
+  check('marquage ticket inexistant → 404', missing.status === 404);
+
+  // Nettoyage
+  const del = await api('DELETE', `/tickets/${tid}`, admin);
+  check('nettoyage ticket non-lu → 200', del.status === 200);
 }
 
 async function testRbac(admin: CookieJar): Promise<void> {
@@ -691,6 +742,7 @@ async function main(): Promise<void> {
       await testAudit(admin);
       await testFacilities(admin);
       await testVideoSessions(admin);
+      await testTicketViewed(admin);
       await testRbac(admin);
       await testGranularPermissions(admin);
       await testUserPasswords(admin);

@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   slaDeadline TEXT,
   slaBreached INTEGER,
   attachments TEXT,
+  viewedBy TEXT,
   history TEXT
 );
 
@@ -165,6 +166,7 @@ CREATE TABLE IF NOT EXISTS video_sessions (
   durationSeconds INTEGER,
   participants TEXT,
   messages TEXT,
+  viewedBy TEXT,
   createdBy TEXT
 );
 `;
@@ -195,6 +197,24 @@ function migrateTicketsAttachments(): void {
 }
 migrateTicketsAttachments();
 
+// Migration : bases existantes créées avant l'ajout de la colonne viewedBy
+// (suivi des tickets « non lus » pour le badge Incidents & Signalements).
+function migrateTicketsViewedBy(): void {
+  const cols = db.prepare('PRAGMA table_info(tickets)').all() as { name: string }[];
+  if (cols.some((c) => c.name === 'viewedBy')) return;
+  db.prepare('ALTER TABLE tickets ADD COLUMN viewedBy TEXT').run();
+}
+migrateTicketsViewedBy();
+
+// Migration : bases existantes créées avant l'ajout de la colonne viewedBy
+// (cloche de notifications d'appels entrants dans le Header).
+function migrateVideoSessionsViewedBy(): void {
+  const cols = db.prepare('PRAGMA table_info(video_sessions)').all() as { name: string }[];
+  if (cols.some((c) => c.name === 'viewedBy')) return;
+  db.prepare('ALTER TABLE video_sessions ADD COLUMN viewedBy TEXT').run();
+}
+migrateVideoSessionsViewedBy();
+
 // ---------------------------------------------------------------------------
 // Entity registry (camelCase column names == API field names)
 // ---------------------------------------------------------------------------
@@ -220,7 +240,7 @@ export const ENTITIES: Record<string, EntityDef> = {
   },
   tickets: {
     table: 'tickets',
-    jsonCols: ['reportedBy', 'assignedTo', 'symptoms', 'history', 'attachments'],
+    jsonCols: ['reportedBy', 'assignedTo', 'symptoms', 'history', 'attachments', 'viewedBy'],
     intCols: ['slaBreached'],
     orderBy: 'reportedAt DESC',
   },
@@ -250,7 +270,7 @@ export const ENTITIES: Record<string, EntityDef> = {
   },
   video_sessions: {
     table: 'video_sessions',
-    jsonCols: ['participants', 'messages', 'createdBy'],
+    jsonCols: ['participants', 'messages', 'viewedBy', 'createdBy'],
     intCols: [],
     orderBy: 'startedAt DESC',
   },

@@ -210,6 +210,8 @@ apiRouter.post('/tickets', requireAuth, requirePermission('canReportIncident'), 
       attachments && (attachments.photoVideo || attachments.voiceMemo)
         ? { photoVideo: attachments.photoVideo || null, voiceMemo: attachments.voiceMemo || null }
         : null,
+    // Le signalant a déjà « vu » son propre ticket : il ne compte pas comme non lu
+    viewedBy: [user.id],
     history: [
       {
         timestamp: new Date().toISOString(),
@@ -283,6 +285,19 @@ apiRouter.put('/tickets/:id/status', requireAuth, requireRole('admin', 'engineer
   }
 
   logAudit(req, 'Changement Statut Ticket', `Ticket ${ticket.code}`, `Nouveau statut: ${status}`);
+  ok(res, { ticket: updated });
+});
+
+// Marque un ticket comme consulté par l'utilisateur courant (badge « non lu »)
+apiRouter.put('/tickets/:id/viewed', requireAuth, (req, res) => {
+  const ticket = getById('tickets', req.params.id);
+  if (!ticket) return res.status(404).json({ error: 'Ticket introuvable.' });
+  const user = getAuthedUser(req);
+  const viewedBy = Array.isArray(ticket.viewedBy) ? (ticket.viewedBy as string[]) : [];
+  if (!viewedBy.includes(user.id)) {
+    viewedBy.push(user.id);
+  }
+  const updated = updateRow('tickets', req.params.id, { viewedBy });
   ok(res, { ticket: updated });
 });
 
@@ -500,6 +515,9 @@ apiRouter.post('/video-sessions', requireAuth, (req, res) => {
     durationSeconds: Math.max(0, Number(data.durationSeconds) || 0),
     participants: Array.isArray(data.participants) ? data.participants : [],
     messages: Array.isArray(data.messages) ? data.messages : [],
+    // Le créateur a déjà « vu » sa propre session : elle ne compte pas comme
+    // notification d'appel entrant pour lui.
+    viewedBy: [user.id],
     createdBy: { id: user.id, name: user.name },
   });
   logAudit(
@@ -509,6 +527,20 @@ apiRouter.post('/video-sessions', requireAuth, (req, res) => {
     `${session.durationSeconds}s — ${(session.participants as unknown as any[]).length} participant(s), ${(session.messages as unknown as any[]).length} message(s)`
   );
   ok(res, { session });
+});
+
+// Marque une session vidéo comme consultée par l'utilisateur courant
+// (cloche de notifications d'appels entrants).
+apiRouter.put('/video-sessions/:id/viewed', requireAuth, (req, res) => {
+  const session = getById('video_sessions', req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session introuvable.' });
+  const user = getAuthedUser(req);
+  const viewedBy = Array.isArray(session.viewedBy) ? (session.viewedBy as string[]) : [];
+  if (!viewedBy.includes(user.id)) {
+    viewedBy.push(user.id);
+  }
+  const updated = updateRow('video_sessions', req.params.id, { viewedBy });
+  ok(res, { session: updated });
 });
 
 apiRouter.delete('/video-sessions/:id', requireAuth, requirePermission('canManageUsers'), (req, res) => {

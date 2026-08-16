@@ -112,12 +112,22 @@ export interface IncidentTicket {
     photoVideo?: string;
     voiceMemo?: string;
   };
+  /** Ids des utilisateurs ayant déjà consulté ce ticket (badge « non lu ») */
+  viewedBy?: string[];
   history: {
     timestamp: string;
     actor: string;
     action: string;
     comment?: string;
   }[];
+}
+
+/** Acteur invité à un appel vidéo (choisi dans la liste des acteurs ou par établissement) */
+export interface InvitedParticipant {
+  id: string;
+  name: string;
+  role: UserRole;
+  facility: string;
 }
 
 export interface DiagnosticStep {
@@ -214,6 +224,8 @@ export interface VideoSession {
     text: string;
     isAi?: boolean;
   }[];
+  /** Ids des utilisateurs ayant déjà consulté la notification d'appel (cloche) */
+  viewedBy?: string[];
   createdBy?: {
     id: string;
     name: string;

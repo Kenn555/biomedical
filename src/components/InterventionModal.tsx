@@ -211,7 +211,7 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
             <label className="font-bold text-slate-900 block flex items-center justify-between text-xs">
               <span>Pièces Detachées & Consommables Utilisés</span>
               <span className="text-emerald-700 font-mono font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                Coût total: {totalPartsCost} €
+                Coût total: {totalPartsCost.toLocaleString('fr-FR')} Ar
               </span>
             </label>
 
@@ -222,7 +222,7 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
                     <div>
                       <p className="font-bold text-slate-900">{part.partName}</p>
                       <p className="text-[10px] text-slate-500 font-medium">
-                        Réf: <span className="font-mono text-slate-700">{part.partCode}</span> • Qté: {part.quantity} • Prix unitaire: {part.unitPrice} €
+                        Réf: <span className="font-mono text-slate-700">{part.partCode}</span> • Qté: {part.quantity} • Prix unitaire: {part.unitPrice.toLocaleString('fr-FR')} Ar
                       </p>
                     </div>
                     <button
@@ -237,7 +237,7 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
               <input
                 type="text"
                 placeholder="Nom pièce..."
@@ -257,6 +257,16 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
                 min={1}
                 value={partQty}
                 onChange={(e) => setPartQty(parseInt(e.target.value) || 1)}
+                className="bg-white text-slate-900 border border-slate-300/80 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all shadow-2xs"
+              />
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={partPrice}
+                onChange={(e) => setPartPrice(parseInt(e.target.value) || 0)}
+                placeholder="Prix (Ar)"
+                title="Prix unitaire en Ariary (Ar)"
                 className="bg-white text-slate-900 border border-slate-300/80 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all shadow-2xs"
               />
               <button

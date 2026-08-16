@@ -151,6 +151,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     usersCount: number;
   } | null>(null);
   const [facilityTransferTo, setFacilityTransferTo] = useState('');
+  const [facilityTransferSearch, setFacilityTransferSearch] = useState('');
 
   // Photos de démonstration proposées pour un équipement (par catégorie)
   const PRESET_EQUIPMENT_IMAGES = [
@@ -407,6 +408,7 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     if (equipmentCount > 0 || usersCount > 0) {
       setFacilityToDelete({ id: facility.id, name: facility.name, equipmentCount, usersCount });
       setFacilityTransferTo('');
+      setFacilityTransferSearch('');
       return;
     }
 
@@ -433,6 +435,14 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
     alert(`Établissement ${facilityToDelete.name} supprimé${transferTo ? ` — rattachements transférés vers ${transferTo}` : '.'}`);
     setFacilityToDelete(null);
   };
+
+  // Sites candidats au transfert : tous sauf le site supprimé, filtrés par la recherche
+  const transferCandidates = facilitiesDetail
+    .filter((f) => f.id !== facilityToDelete?.id)
+    .filter((f) => {
+      const q = facilityTransferSearch.trim().toLowerCase();
+      return q === '' || f.name.toLowerCase().includes(q);
+    });
 
   // Toggle permission directly from Permissions Matrix
   const handleToggleUserPermission = (user: UserProfile, permKey: keyof Required<UserProfile>['permissions']) => {
@@ -1700,22 +1710,51 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                 </p>
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <label className="font-bold text-slate-900 block mb-1">Établissement de transfert *</label>
-                <select
-                  value={facilityTransferTo}
-                  onChange={(e) => setFacilityTransferTo(e.target.value)}
-                  className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs cursor-pointer font-semibold"
-                >
-                  <option value="">-- Choisir un site --</option>
-                  {facilitiesDetail
-                    .filter((f) => f.id !== facilityToDelete.id)
-                    .map((f) => (
+
+                {/* Recherche : ne garde que les sites correspondants */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={facilityTransferSearch}
+                    onChange={(e) => {
+                      setFacilityTransferSearch(e.target.value);
+                      // Si le site sélectionné sort du filtre, on vide la sélection
+                      const q = e.target.value.trim().toLowerCase();
+                      if (q !== '' && !facilityTransferTo.toLowerCase().includes(q)) {
+                        setFacilityTransferTo('');
+                      }
+                    }}
+                    placeholder="Rechercher un site de transfert..."
+                    className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs text-xs"
+                  />
+                </div>
+
+                {transferCandidates.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                    Aucun établissement ne correspond à « {facilityTransferSearch.trim()} ».
+                  </p>
+                ) : (
+                  <select
+                    value={facilityTransferTo}
+                    onChange={(e) => setFacilityTransferTo(e.target.value)}
+                    className="w-full bg-slate-50 hover:bg-slate-100/60 text-slate-900 border border-slate-300/80 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 focus:bg-white transition-all shadow-2xs cursor-pointer font-semibold"
+                  >
+                    <option value="">-- Choisir un site --</option>
+                    {transferCandidates.map((f) => (
                       <option key={f.id} value={f.name}>
                         {f.name}
                       </option>
                     ))}
-                </select>
+                  </select>
+                )}
+                <p className="text-[10px] text-slate-400 font-medium">
+                  {facilityTransferSearch.trim()
+                    ? `${transferCandidates.length} site(s) correspondant(s) à la recherche`
+                    : `${transferCandidates.length} site(s) disponible(s)`}
+                </p>
               </div>
             </div>
 

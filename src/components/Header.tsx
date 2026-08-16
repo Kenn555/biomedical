@@ -14,10 +14,11 @@ import {
   Video,
   LogOut
 } from 'lucide-react';
-import { UserProfile } from '../types';
+import { UserProfile, VideoSession } from '../types';
 import { can } from '../lib/permissions';
 import { getRoleLabel } from '../lib/selectOptions';
 export { getRoleLabel } from '../lib/selectOptions';
+import { IncomingCallNotifications } from './IncomingCallNotifications';
 
 interface HeaderProps {
   currentUser: UserProfile;
@@ -33,6 +34,10 @@ interface HeaderProps {
   pendingTicketsCount: number;
   isOnline?: boolean;
   isSimulatedOffline?: boolean;
+  /** Sessions vidéo où l'utilisateur courant a été invité (cloche d'appels entrants) */
+  incomingCallSessions?: VideoSession[];
+  onMarkCallViewed?: (sessionId: string) => void;
+  onJoinIncomingCall?: (session: VideoSession) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,6 +54,9 @@ export const Header: React.FC<HeaderProps> = ({
   pendingTicketsCount,
   isOnline = true,
   isSimulatedOffline = false,
+  incomingCallSessions = [],
+  onMarkCallViewed,
+  onJoinIncomingCall,
 }) => {
   const effectiveOffline = !isOnline || isSimulatedOffline;
 
@@ -130,6 +138,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </span>
             </div>
+
+            {/* Cloche des appels entrants */}
+            {onMarkCallViewed && onJoinIncomingCall && (
+              <IncomingCallNotifications
+                currentUser={currentUser}
+                sessions={incomingCallSessions}
+                onMarkViewed={onMarkCallViewed}
+                onJoinCall={onJoinIncomingCall}
+              />
+            )}
 
             {/* Déconnexion */}
             {onLogout && (
