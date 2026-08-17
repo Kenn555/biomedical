@@ -1088,7 +1088,10 @@ export const AdminUsersAudit: React.FC<AdminUsersAuditProps> = ({
                       </div>
                     </div>
 
-                    <p className="text-[11px] text-slate-500 font-medium">Début : {startedLabel} — Fin : {new Date(session.endedAt).toLocaleString('fr-FR')}</p>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Début : {startedLabel} — Fin :{' '}
+                      {session.endedAt ? new Date(session.endedAt).toLocaleString('fr-FR') : 'En cours'}
+                    </p>
 
                     {/* Participants présents */}
                     <div className="flex flex-wrap items-center gap-1.5">

@@ -73,6 +73,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [tabLoading, setTabLoading] = useState<boolean>(false);
   const [setupRequired, setSetupRequired] = useState<boolean>(false);
+  // Vérification initiale au démarrage (première installation / session existante)
+  const [bootChecking, setBootChecking] = useState<boolean>(true);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const [tickets, setTickets] = useState<IncidentTicket[]>([]);
@@ -100,6 +102,7 @@ export default function App() {
   const openVideoSetup = (ticket: IncidentTicket | null = null) => {
     setSelectedTicketForVideoCall(ticket);
     setInvitedParticipants([]);
+    setJoinSession(null);
     setIsVideoSetupOpen(true);
   };
   const [activeTab, setActiveTab] = useState<string>('equipment');
@@ -117,6 +120,13 @@ export default function App() {
   // Préparation de l'appel : sélection des acteurs/établissements + notification bloquante
   const [isVideoSetupOpen, setIsVideoSetupOpen] = useState<boolean>(false);
   const [invitedParticipants, setInvitedParticipants] = useState<InvitedParticipant[]>([]);
+  // Session vidéo « en direct » créée au démarrage de la visioconférence :
+  // c'est elle qui déclenche la notification « Rejoindre » chez les invités.
+  const [activeVideoSessionId, setActiveVideoSessionId] = useState<string | null>(null);
+  // Session live à rejoindre directement (acceptation d'un appel entrant)
+  const [joinSession, setJoinSession] = useState<VideoSession | null>(null);
+  // Mode de l'appel : vidéo (caméra + micro) ou audio seul
+  const [videoCallMode, setVideoCallMode] = useState<'audio' | 'video'>('video');
 
   // Toast Notifications State
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -193,6 +203,16 @@ export default function App() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Veille des sessions vidéo : les acteurs invités voient l'appel « en
+  // direct » apparaître dans la cloche d'appels entrants sans rechargement.
+  useEffect(() => {
+    if (!isAuthenticated || !isOnline || isSimulatedOffline) return;
+    const timer = window.setInterval(() => {
+      api.getVideoSessions().then(setVideoSessions).catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [isAuthenticated, isOnline, isSimulatedOffline]);
 
   // Force Manual / Auto Sync
   const handleForceSync = () => {
@@ -408,9 +428,20 @@ export default function App() {
     }
   };
 
-  // Rejoindre / rappeler depuis la cloche : relance la préparation d'appel
-  // avec le contexte (ticket) et les participants invités de la session.
+  // Rejoindre / rappeler depuis la cloche. Appel « en direct » : acceptation
+  // immédiate — l'acteur entre dans la même session (choix audio/vidéo proposé
+  // dans la salle). Session terminée : rappel via l'écran de préparation.
   const handleJoinIncomingCall = (session: VideoSession) => {
+    if (!session.endedAt) {
+      void handleMarkCallViewed(session.id);
+      setJoinSession(session);
+      setSelectedTicketForVideoCall(null);
+      setInvitedParticipants([]);
+      setActiveVideoSessionId(null);
+      setIsVideoSetupOpen(false);
+      setIsVideoConferenceOpen(true);
+      return;
+    }
     const tkt = session.ticketCode
       ? tickets.find((t) => t.code === session.ticketCode) || null
       : null;
@@ -925,19 +956,46 @@ export default function App() {
     setCurrentUser(EMPTY_USER);
   };
 
-  // À l'ouverture, détecte la première installation : aucun compte n'existe
-  // encore → affichage de l'écran de création du compte administrateur.
+  // À l'ouverture : détecte la première installation (création du compte
+  // administrateur) et, si un cookie de session valide existe (rechargement
+  // de page, etc.), restaure la session au lieu de repasser par l'écran de
+  // connexion.
   useEffect(() => {
-    api
-      .authStatus()
-      .then((needed) => setSetupRequired(needed))
-      .catch(() => {
-        /* serveur injoignable : l'écran de connexion s'affichera */
-      });
+    let cancelled = false;
+    (async () => {
+      try {
+        const needed = await api.authStatus();
+        if (cancelled) return;
+        setSetupRequired(needed);
+        if (!needed) {
+          try {
+            const user = await api.me();
+            if (cancelled || !user) return;
+            await handleLogin(user);
+          } catch {
+            /* pas de session valide : l'écran de connexion s'affiche */
+          }
+        }
+      } catch {
+        /* serveur injoignable : l'écran de connexion s'affiche */
+      } finally {
+        if (!cancelled) setBootChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // handleLogin est recréé à chaque rendu mais le boot ne doit s'exécuter qu'une fois
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Indicateur « Incidents & Signalements » = nombre de tickets pas encore vus/lus
   const pendingTicketsCount = tickets.filter((t) => !isViewed(t.viewedBy, currentUser.id)).length;
+
+  // Vérification initiale en cours : on n'affiche encore aucun écran
+  if (bootChecking) {
+    return <AppLoader />;
+  }
 
   // Première installation : aucun compte n'existe → création du compte admin
   if (setupRequired && !isAuthenticated) {
@@ -1188,9 +1246,42 @@ export default function App() {
         ticket={selectedTicketForVideoCall}
         equipment={selectedEquipmentForTeleSession || selectedEquipmentForModal}
         defaultSelectedIds={invitedParticipants.map((p) => p.id)}
-        onStartCall={(invited) => {
+        onStartCall={async (invited, mode) => {
           setInvitedParticipants(invited);
+          setVideoCallMode(mode);
+          setJoinSession(null);
           setIsVideoSetupOpen(false);
+          // La session est créée dès le démarrage : les acteurs invités
+          // reçoivent une notification « Rejoindre » dans leur cloche.
+          const tkt = selectedTicketForVideoCall;
+          const eq = selectedEquipmentForTeleSession || selectedEquipmentForModal;
+          const roomName = tkt
+            ? `BioMed-${tkt.code}`
+            : eq
+            ? `BioMed-Room-${eq.code}`
+            : 'BioMed-Room-General';
+          let liveId: string | null = null;
+          try {
+            const saved = await api.createVideoSession({
+              roomName,
+              ticketCode: tkt?.code,
+              equipmentCode: eq?.code,
+              startedAt: new Date().toISOString(),
+              endedAt: null,
+              durationSeconds: 0,
+              participants: [
+                { id: currentUser.id, name: currentUser.name, role: currentUser.role },
+                ...invited,
+              ],
+              messages: [],
+              callMode: mode,
+            });
+            liveId = saved.id;
+          } catch {
+            // Hors ligne : la session sera créée à la clôture, sans
+            // notification « en direct » pour les invités.
+          }
+          setActiveVideoSessionId(liveId);
           setIsVideoConferenceOpen(true);
         }}
       />
@@ -1201,6 +1292,8 @@ export default function App() {
           setIsVideoConferenceOpen(false);
           setSelectedTicketForVideoCall(null);
           setInvitedParticipants([]);
+          setActiveVideoSessionId(null);
+          setJoinSession(null);
           // Recharge l'historique des sessions enregistrées
           api.getVideoSessions().then(setVideoSessions).catch(() => {});
         }}
@@ -1208,6 +1301,9 @@ export default function App() {
         equipment={selectedEquipmentForTeleSession || selectedEquipmentForModal}
         currentUser={currentUser}
         invitedParticipants={invitedParticipants}
+        liveSessionId={activeVideoSessionId}
+        joinSession={joinSession}
+        callMode={videoCallMode}
       />
 
       {/* Footer */}

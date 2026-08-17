@@ -251,18 +251,17 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
             </button>
           )}
 
-          {can(currentUser, 'canRunDiagnostic') && (
-            <button
-              onClick={() => {
-                onClose();
-                onOpenTeleSession(equipment);
-              }}
-              className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
-            >
-              <Video className="w-4 h-4 text-sky-600" />
-              <span>Télé-Assistance Directe</span>
-            </button>
-          )}
+          {/* Télé-Assistance Directe : ouverte à tous les acteurs */}
+          <button
+            onClick={() => {
+              onClose();
+              onOpenTeleSession(equipment);
+            }}
+            className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
+          >
+            <Video className="w-4 h-4 text-sky-600" />
+            <span>Télé-Assistance Directe</span>
+          </button>
 
           {can(currentUser, 'canReportIncident') && (
             <button

@@ -586,16 +586,15 @@ export const TicketList: React.FC<TicketListProps> = ({
                             </button>
                           )}
 
-                          {can(currentUser, 'canRunDiagnostic') && (
-                            <button
-                              onClick={() => onOpenTeleSession(ticket)}
-                              className="w-full bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 p-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
-                              title="Démarrer la session de Télé-Assistance vidéo directe"
-                            >
-                              <Video className="w-4 h-4 text-sky-600 shrink-0" />
-                              <span>Télé-Assistance Directe</span>
-                            </button>
-                          )}
+                          {/* Télé-Assistance Directe : ouverte à tous les acteurs */}
+                          <button
+                            onClick={() => onOpenTeleSession(ticket)}
+                            className="w-full bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 p-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                            title="Démarrer la session de Télé-Assistance vidéo directe"
+                          >
+                            <Video className="w-4 h-4 text-sky-600 shrink-0" />
+                            <span>Télé-Assistance Directe</span>
+                          </button>
 
                           {can(currentUser, 'canCloseIntervention') && (
                             <button

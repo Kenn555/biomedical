@@ -1,9 +1,11 @@
 import express from 'express';
+import http from 'node:http';
 import net from 'node:net';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { apiRouter } from './server/routes';
+import { attachSignalingServer } from './server/signaling';
 
 dotenv.config();
 
@@ -40,7 +42,12 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  // Serveur HTTP partagé : Express (API + frontend) et WebSocket de
+  // signalisation WebRTC (visioconférences en direct) sur le même port.
+  const httpServer = http.createServer(app);
+  attachSignalingServer(httpServer, '/signal');
+
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

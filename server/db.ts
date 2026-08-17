@@ -157,7 +157,9 @@ CREATE TABLE IF NOT EXISTS video_sessions (
   participants TEXT,
   messages TEXT,
   viewedBy TEXT,
-  createdBy TEXT
+  createdBy TEXT,
+  joinedParticipants TEXT,
+  callMode TEXT
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -210,6 +212,20 @@ function migrateVideoSessionsViewedBy(): void {
   db.prepare('ALTER TABLE video_sessions ADD COLUMN viewedBy TEXT').run();
 }
 migrateVideoSessionsViewedBy();
+
+// Migration : bases existantes créées avant l'ajout des colonnes
+// joinedParticipants (présence des acteurs ayant rejoint l'appel) et callMode
+// (mode de l'appel : vidéo ou audio seul).
+function migrateVideoSessionsLiveCall(): void {
+  const cols = db.prepare('PRAGMA table_info(video_sessions)').all() as { name: string }[];
+  if (!cols.some((c) => c.name === 'joinedParticipants')) {
+    db.prepare('ALTER TABLE video_sessions ADD COLUMN joinedParticipants TEXT').run();
+  }
+  if (!cols.some((c) => c.name === 'callMode')) {
+    db.prepare('ALTER TABLE video_sessions ADD COLUMN callMode TEXT').run();
+  }
+}
+migrateVideoSessionsLiveCall();
 
 // ---------------------------------------------------------------------------
 // Entity registry (camelCase column names == API field names)
@@ -266,7 +282,7 @@ export const ENTITIES: Record<string, EntityDef> = {
   },
   video_sessions: {
     table: 'video_sessions',
-    jsonCols: ['participants', 'messages', 'viewedBy', 'createdBy'],
+    jsonCols: ['participants', 'messages', 'viewedBy', 'createdBy', 'joinedParticipants'],
     intCols: [],
     orderBy: 'startedAt DESC',
   },
@@ -363,6 +379,39 @@ export function findBy(entity: EntityName, field: string, value: unknown): Recor
   const def = ENTITIES[entity];
   const row = db.prepare(`SELECT * FROM ${def.table} WHERE ${field} = ?`).get(value as SQLInputValue) as Record<string, unknown> | undefined;
   return row ? deserializeRow(row, def) : null;
+}
+
+// ---------------------------------------------------------------------------
+// Sessions de visioconférence : chat en direct persisté (photos, messages,
+// enregistrements vocaux) et présence des participants qui ont rejoint.
+// ---------------------------------------------------------------------------
+
+/** Ajoute un message au fil de discussion d'une session (retourne la session mise à jour). */
+export function appendVideoSessionMessage(
+  sessionId: string,
+  message: Record<string, unknown>
+): Record<string, unknown> | null {
+  const session = getById('video_sessions', sessionId);
+  if (!session) return null;
+  const messages = Array.isArray(session.messages) ? (session.messages as Record<string, unknown>[]) : [];
+  messages.push(message);
+  return updateRow('video_sessions', sessionId, { messages });
+}
+
+/** Marque un participant comme ayant rejoint la session (présence pour l'historique). */
+export function markVideoSessionJoined(
+  sessionId: string,
+  user: { id: string; name: string }
+): Record<string, unknown> | null {
+  const session = getById('video_sessions', sessionId);
+  if (!session) return null;
+  const joined = Array.isArray(session.joinedParticipants)
+    ? (session.joinedParticipants as { id: string; name: string; at?: string }[])
+    : [];
+  if (!joined.some((j) => j.id === user.id)) {
+    joined.push({ id: user.id, name: user.name, at: new Date().toISOString() });
+  }
+  return updateRow('video_sessions', sessionId, { joinedParticipants: joined });
 }
 
 // ---------------------------------------------------------------------------

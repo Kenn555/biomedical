@@ -104,18 +104,18 @@ export const RemoteDiagnosticModal: React.FC<RemoteDiagnosticModalProps> = ({
       <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden my-8">
         {/* Header */}
         <div className="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 shadow-lg font-bold">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 shadow-lg font-bold shrink-0">
               <Wrench className="w-5 h-5 font-bold" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold text-white">Suite de Diagnostic Technique à Distance</h2>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30">
+                <h2 className="text-base font-bold text-white truncate">Suite de Diagnostic Technique à Distance</h2>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30 shrink-0">
                   {equipment.code}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 truncate">
                 {equipment.name} • {equipment.facility}
               </p>
             </div>
@@ -123,17 +123,17 @@ export const RemoteDiagnosticModal: React.FC<RemoteDiagnosticModalProps> = ({
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Diagnostic Tabs */}
-        <div className="flex border-b border-slate-800 bg-slate-950/60 px-6 pt-2">
+        <div className="flex overflow-x-auto border-b border-slate-800 bg-slate-950/60 px-4 sm:px-6 pt-2">
           <button
             onClick={() => setActiveTab('ai')}
-            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'ai'
                 ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -145,7 +145,7 @@ export const RemoteDiagnosticModal: React.FC<RemoteDiagnosticModalProps> = ({
 
           <button
             onClick={() => setActiveTab('wizard')}
-            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'wizard'
                 ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -157,7 +157,7 @@ export const RemoteDiagnosticModal: React.FC<RemoteDiagnosticModalProps> = ({
 
           <button
             onClick={() => setActiveTab('telemetry')}
-            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center space-x-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'telemetry'
                 ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'

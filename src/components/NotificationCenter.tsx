@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Bell, PhoneCall, Video, X, CheckCheck, Clock, Wrench, Inbox } from 'lucide-react';
+import { Bell, PhoneCall, PhoneOff, Video, X, CheckCheck, Clock, Wrench, Inbox } from 'lucide-react';
 import { VideoSession, UserProfile, AppNotification } from '../types';
 import { isViewed } from '../lib/ticketUtils';
 
@@ -103,7 +103,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
       {/* Panneau déroulant */}
       {isOpen && (
-        <div className="absolute right-0 top-[calc(100%+8px)] w-80 sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute right-0 top-[calc(100%+8px)] w-[min(24rem,calc(100vw-1rem))] sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
             <h4 className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
               <Bell className="w-4 h-4 text-emerald-600" />
@@ -183,6 +183,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               )}
               {incoming.map((s) => {
                 const isUnread = !isViewed(s.viewedBy, currentUser.id);
+                // Session « en direct » : l'appel est en cours, l'invité peut
+                // encore le rejoindre. Session clôturée : simple rappel.
+                const isLive = !s.endedAt;
                 const caller = s.createdBy?.name || 'Un acteur';
                 return (
                   <div key={s.id} className={`rounded-xl p-2.5 space-y-2 ${isUnread ? 'bg-amber-50/70' : ''}`}>
@@ -191,6 +194,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         <p className="text-[11px] font-bold text-slate-900 truncate flex items-center space-x-1.5">
                           {isUnread && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />}
                           <span>Appel de {caller}</span>
+                          {isLive && (
+                            <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 text-[9px] font-black shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                              <span>EN DIRECT</span>
+                            </span>
+                          )}
                         </p>
                         <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
                           {s.roomName}
@@ -208,9 +217,18 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black px-3 py-1.5 rounded-xl transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
                       >
                         <Video className="w-3.5 h-3.5" />
-                        <span>Rejoindre / Rappeler</span>
+                        <span>{isLive ? "Accepter & rejoindre" : 'Rejoindre / Rappeler'}</span>
                       </button>
-                      {isUnread && (
+                      {isUnread && isLive && (
+                        <button
+                          onClick={() => onMarkCallViewed(s.id)}
+                          className="px-2 py-1.5 bg-white hover:bg-slate-100 text-rose-600 border border-rose-200 rounded-xl transition-colors cursor-pointer"
+                          title="Refuser l'appel"
+                        >
+                          <PhoneOff className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {isUnread && !isLive && (
                         <button
                           onClick={() => onMarkCallViewed(s.id)}
                           className="px-2 py-1.5 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl transition-colors cursor-pointer"

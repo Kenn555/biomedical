@@ -149,13 +149,13 @@ export const TeleMaintenanceSession: React.FC<TeleMaintenanceSessionProps> = ({
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-start sm:items-center justify-center p-3 overflow-y-auto">
       <div className="bg-slate-900 border border-slate-800 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[90vh]">
         {/* Session Top Header */}
-        <div className="bg-slate-950 px-6 py-3 border-b border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
-              <span className="font-bold text-white text-sm">Session Télé-Assistance Biomédicale Directe</span>
+        <div className="bg-slate-950 px-4 sm:px-6 py-3 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="flex items-center space-x-2 min-w-0">
+              <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping shrink-0" />
+              <span className="font-bold text-white text-sm truncate">Session Télé-Assistance Biomédicale Directe</span>
             </div>
-            <span className="text-xs font-mono bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded border border-sky-500/30">
+            <span className="text-xs font-mono bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded border border-sky-500/30 shrink-0">
               {equipment.code}
             </span>
           </div>

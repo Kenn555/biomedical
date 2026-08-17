@@ -44,6 +44,10 @@ export const api = {
     return data.user;
   },
 
+  // Utilisateur de la session courante (cookie valide) : permet de restaurer
+  // la connexion après un rechargement de page, sans repasser par le login.
+  me: () => apiFetch<{ user: UserProfile }>('/api/auth/me').then((d) => d.user),
+
   async logout(): Promise<void> {
     await apiFetch<{ success: boolean }>('/api/auth/logout', { method: 'POST' });
   },
@@ -152,6 +156,21 @@ export const api = {
     }).then((d) => d.session),
   markVideoSessionViewed: (id: string) =>
     apiFetch<{ session: VideoSession }>(`/api/video-sessions/${id}/viewed`, { method: 'PUT' }).then((d) => d.session),
+  endVideoSession: (
+    id: string,
+    data: { endedAt?: string; durationSeconds?: number; messages?: VideoSession['messages'] }
+  ) =>
+    apiFetch<{ session: VideoSession }>(`/api/video-sessions/${id}/end`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }).then((d) => d.session),
+  markVideoSessionJoined: (id: string) =>
+    apiFetch<{ session: VideoSession }>(`/api/video-sessions/${id}/join`, { method: 'PUT' }).then((d) => d.session),
+  addVideoSessionMessage: (id: string, message: VideoSession['messages'][number]) =>
+    apiFetch<{ session: VideoSession }>(`/api/video-sessions/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(message),
+    }).then((d) => d.session),
   deleteVideoSession: (id: string) =>
     apiFetch<{ success: boolean }>(`/api/video-sessions/${id}`, { method: 'DELETE' }),
 

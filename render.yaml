@@ -1,7 +1,16 @@
-# Exported from Render on 2026-08-15T10:26:07Z
+# Déploiement Render — plateforme BioMed
+#
+# Node 24 : le serveur utilise node:sqlite (intégré, sans flag) et est bundlé
+# par esbuild ; le frontend est compilé par Vite. `npm start` sert dist/.
+#
+# ⚠️ Plan gratuit Render : le disque est éphémère — la base SQLite
+# (data/biomed.db) est perdue à chaque redéploiement ou redémarrage de
+# l'instance (et les instances gratuites s'endorment après ~15 min
+# d'inactivité). Pour des données durables, brancher une base externe
+# (PostgreSQL) et adapter l'application pour l'utiliser.
 version: "1"
 projects:
-- name: My project
+- name: BioMed
   environments:
   - name: Production
     services:
@@ -11,6 +20,12 @@ projects:
       repo: https://github.com/Kenn555/biomedical
       plan: free
       region: ohio
-      buildCommand: bun install
-      startCommand: bun run start
+      buildCommand: npm ci && npm run build
+      startCommand: npm start
       autoDeployTrigger: commit
+      healthCheckPath: /api/health
+      envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production

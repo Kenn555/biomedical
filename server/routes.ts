@@ -10,6 +10,8 @@ import {
   createInitialAdmin,
   resetDatabase,
   hashPassword,
+  appendVideoSessionMessage,
+  markVideoSessionJoined,
 } from './db';
 import {
   attemptLogin,
@@ -609,10 +611,13 @@ apiRouter.post('/video-sessions', requireAuth, (req, res) => {
     ticketCode: data.ticketCode || null,
     equipmentCode: data.equipmentCode || null,
     startedAt: data.startedAt || new Date().toISOString(),
-    endedAt: data.endedAt || new Date().toISOString(),
+    // Session « en direct » si aucun endedAt fourni (créée au démarrage de la
+    // visioconférence pour notifier les acteurs invités), sinon session clôturée.
+    endedAt: data.endedAt || null,
     durationSeconds: Math.max(0, Number(data.durationSeconds) || 0),
     participants: Array.isArray(data.participants) ? data.participants : [],
     messages: Array.isArray(data.messages) ? data.messages : [],
+    callMode: data.callMode === 'audio' ? 'audio' : 'video',
     // Le créateur a déjà « vu » sa propre session : elle ne compte pas comme
     // notification d'appel entrant pour lui.
     viewedBy: [{ id: user.id, at: new Date().toISOString() }],
@@ -625,6 +630,52 @@ apiRouter.post('/video-sessions', requireAuth, (req, res) => {
     `${session.durationSeconds}s — ${(session.participants as unknown as any[]).length} participant(s), ${(session.messages as unknown as any[]).length} message(s)`
   );
   ok(res, { session });
+});
+
+// Clôture une session de visioconférence « en direct » : horodatage de fin et
+// durée réelle (les messages du chat sont déjà persistés en direct via la
+// signalisation WebSocket — ils ne sont remplacés que si explicitement fournis).
+apiRouter.put('/video-sessions/:id/end', requireAuth, (req, res) => {
+  const existing = getById('video_sessions', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Session introuvable.' });
+  const data = req.body || {};
+  const endedAt = data.endedAt || new Date().toISOString();
+  const durationSeconds = Math.max(0, Number(data.durationSeconds) || 0);
+  const patch: Record<string, unknown> = { endedAt, durationSeconds };
+  if ('messages' in data) {
+    patch.messages = Array.isArray(data.messages) ? data.messages : [];
+  }
+  const updated = updateRow('video_sessions', req.params.id, patch);
+  logAudit(
+    req,
+    'Session Visioconférence',
+    (existing.roomName as string) || 'BioMed-Room-General',
+    `Clôture — ${durationSeconds}s, ${((updated?.messages as unknown as any[]) || []).length} message(s)`
+  );
+  ok(res, { session: updated });
+});
+
+// Marque l'acteur courant comme ayant rejoint la session (présence historique).
+apiRouter.put('/video-sessions/:id/join', requireAuth, (req, res) => {
+  const existing = getById('video_sessions', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Session introuvable.' });
+  const user = getAuthedUser(req);
+  const updated = markVideoSessionJoined(req.params.id, { id: user.id, name: user.name });
+  logAudit(req, 'Session Visioconférence', (existing.roomName as string) || '', `${user.name} a rejoint l'appel`);
+  ok(res, { session: updated });
+});
+
+// Ajoute un message au chat de la session (repli HTTP si la signalisation
+// WebSocket est indisponible).
+apiRouter.post('/video-sessions/:id/messages', requireAuth, (req, res) => {
+  const existing = getById('video_sessions', req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Session introuvable.' });
+  const message = req.body || {};
+  if (!message.sender || (!message.text && !message.image && !message.voice && !message.file)) {
+    return res.status(400).json({ error: 'Message invalide (texte, image, fichier ou enregistrement vocal requis).' });
+  }
+  const updated = appendVideoSessionMessage(req.params.id, message);
+  ok(res, { session: updated });
 });
 
 // Marque une session vidéo comme consultée par l'utilisateur courant

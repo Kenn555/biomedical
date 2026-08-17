@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { IncidentTicket, Equipment, UserProfile, InvitedParticipant } from '../types';
-import { Users, Building2, X, PhoneCall, Check, Video, BellRing } from 'lucide-react';
+import { Users, Building2, X, PhoneCall, Check, Video, Mic, BellRing } from 'lucide-react';
 import { getRoleLabel } from './Header';
 
 interface VideoCallSetupModalProps {
@@ -11,7 +11,7 @@ interface VideoCallSetupModalProps {
   facilities: string[];
   ticket?: IncidentTicket | null;
   equipment?: Equipment | null;
-  onStartCall: (invited: InvitedParticipant[]) => void;
+  onStartCall: (invited: InvitedParticipant[], mode: 'audio' | 'video') => void;
   /** Participants pré-sélectionnés (rappel depuis la cloche d'appels entrants) */
   defaultSelectedIds?: string[];
 }
@@ -31,6 +31,8 @@ export const VideoCallSetupModal: React.FC<VideoCallSetupModalProps> = ({
   const [phase, setPhase] = useState<'select' | 'notify'>('select');
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultSelectedIds);
   const [facilityFilter, setFacilityFilter] = useState<string>('ALL');
+  // Mode de l'appel : vidéo (caméra + micro) ou audio seul
+  const [callMode, setCallMode] = useState<'audio' | 'video'>('video');
 
   const candidates = useMemo(
     () => users.filter((u) => u.id !== currentUser.id),
@@ -81,6 +83,7 @@ export const VideoCallSetupModal: React.FC<VideoCallSetupModalProps> = ({
       setPhase('select');
       setSelectedIds(defaultSelectedIds);
       setFacilityFilter('ALL');
+      setCallMode('video');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -148,7 +151,7 @@ export const VideoCallSetupModal: React.FC<VideoCallSetupModalProps> = ({
                 Fermer
               </button>
               <button
-                onClick={() => onStartCall(selectedParticipants)}
+                onClick={() => onStartCall(selectedParticipants, callMode)}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-3 rounded-xl transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
               >
                 <Video className="w-4 h-4" />
@@ -167,16 +170,16 @@ export const VideoCallSetupModal: React.FC<VideoCallSetupModalProps> = ({
       <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[88vh]">
         {/* Header */}
         <div className="p-5 border-b border-slate-200 flex items-start justify-between gap-3">
-          <div className="flex items-start space-x-3">
+          <div className="flex items-start space-x-3 min-w-0">
             <div className="p-2.5 bg-sky-50 text-sky-600 rounded-2xl border border-sky-200 shrink-0">
               <PhoneCall className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900">Préparer l'appel vidéo</h3>
+            <div className="min-w-0">
+              <h3 className="text-sm font-extrabold text-slate-900 truncate">Préparer l'appel vidéo</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
                 Indiquez d'abord les <strong>acteurs</strong> ou <strong>établissements</strong> demandés à l'appel, puis lancez la visioconférence.
               </p>
-              <p className="text-[11px] text-slate-400 font-bold mt-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 inline-block">
+              <p className="text-[11px] text-slate-400 font-bold mt-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 inline-block truncate max-w-full">
                 Contexte : {contextLabel}
               </p>
             </div>
@@ -304,7 +307,30 @@ export const VideoCallSetupModal: React.FC<VideoCallSetupModalProps> = ({
               <span className="text-slate-400"> — {selectedParticipants.map((p) => p.name.split(' ')[0]).join(', ')}</span>
             )}
           </p>
-          <div className="flex space-x-2 shrink-0">
+          <div className="flex items-center space-x-2 shrink-0">
+            {/* Choix du mode : vidéo ou audio seul */}
+            <div className="flex items-center bg-slate-100 rounded-xl p-1">
+              <button
+                onClick={() => setCallMode('video')}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                  callMode === 'video' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+                title="Appel vidéo (caméra + micro)"
+              >
+                <Video className="w-4 h-4 text-sky-600" />
+                <span>Vidéo</span>
+              </button>
+              <button
+                onClick={() => setCallMode('audio')}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                  callMode === 'audio' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+                title="Appel audio seul (micro uniquement)"
+              >
+                <Mic className="w-4 h-4 text-emerald-600" />
+                <span>Audio</span>
+              </button>
+            </div>
             <button
               onClick={resetAndClose}
               className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"

@@ -186,8 +186,9 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Visioconférence Directe button */}
-            {onOpenVideoCall && can(currentUser, 'canRunDiagnostic') && (
+            {/* Visioconférence Directe button — ouverte à tous les acteurs,
+                quel que soit l'établissement ou la permission de diagnostic */}
+            {onOpenVideoCall && (
               <button
                 onClick={onOpenVideoCall}
                 className="group relative flex items-center justify-center space-x-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 p-2 sm:px-3 sm:py-1.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer shadow-2xs whitespace-nowrap"

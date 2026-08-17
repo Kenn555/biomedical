@@ -113,13 +113,13 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
       <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-2xl shadow-xl overflow-hidden my-8">
         {/* Header */}
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
               <FileCheck className="w-4 h-4 text-amber-600" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Rapport d'Intervention Biomédicale</h2>
-              <p className="text-xs text-slate-500 font-medium">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900 truncate">Rapport d'Intervention Biomédicale</h2>
+              <p className="text-xs text-slate-500 font-medium truncate">
                 Procès-verbal officiel de clôture de maintenance pour {ticket.equipmentName} ({ticket.code})
               </p>
             </div>
@@ -127,7 +127,7 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-800 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-800 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -332,7 +332,7 @@ export const InterventionModal: React.FC<InterventionModalProps> = ({
           </div>
 
           {/* Submit buttons */}
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200">
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={onClose}

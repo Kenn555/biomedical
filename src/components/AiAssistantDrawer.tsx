@@ -104,13 +104,13 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({
       <div className="bg-white border-l border-slate-200 w-full max-w-md h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
         {/* Drawer Header */}
         <div className="bg-slate-50 px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-emerald-400 shadow-xs font-bold">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-emerald-400 shadow-xs font-bold shrink-0">
               <BookOpen className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-bold text-slate-900 text-sm">Assistant Support BioMed</h3>
-              <p className="text-[10px] text-slate-500 font-medium">
+            <div className="min-w-0">
+              <h3 className="font-bold text-slate-900 text-sm truncate">Assistant Support BioMed</h3>
+              <p className="text-[10px] text-slate-500 font-medium truncate">
                 Guide Technique & Base Connaissances • Profil : {currentUser.role}
               </p>
             </div>
@@ -118,7 +118,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-800 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-800 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>

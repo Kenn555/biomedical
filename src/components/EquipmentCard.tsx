@@ -187,15 +187,14 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({
           </button>
         )}
 
-        {can(currentUser, 'canRunDiagnostic') && (
-          <button
-            onClick={() => onOpenTeleSession(equipment)}
-            className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold transition-colors flex items-center justify-center cursor-pointer"
-            title="Session Télé-Assistance Vidéo en Direct"
-          >
-            <Video className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-          </button>
-        )}
+        {/* Télé-Assistance Vidéo en Direct : ouverte à tous les acteurs */}
+        <button
+          onClick={() => onOpenTeleSession(equipment)}
+          className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold transition-colors flex items-center justify-center cursor-pointer"
+          title="Session Télé-Assistance Vidéo en Direct"
+        >
+          <Video className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+        </button>
 
         {can(currentUser, 'canReportIncident') && (
           <button

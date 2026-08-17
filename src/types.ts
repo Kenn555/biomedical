@@ -217,6 +217,21 @@ export interface ChatMessage {
   isAi?: boolean;
 }
 
+/** Message échangé pendant une visioconférence (texte, photo ou enregistrement vocal) */
+export interface VideoChatMessage {
+  id: string;
+  senderId: string;
+  sender: string;
+  time: string;              // HH:mm local
+  text?: string;
+  image?: string;            // data URL (photo envoyée pendant l'appel)
+  voice?: string;            // data URL (enregistrement vocal)
+  file?: string;             // data URL (fichier joint pendant l'appel)
+  fileName?: string;         // nom du fichier joint
+  fileSize?: number;         // taille en octets du fichier joint
+  isAi?: boolean;
+}
+
 /** Session de visioconférence enregistrée (durée, participants présents, messages) */
 export interface VideoSession {
   id: string;
@@ -224,19 +239,18 @@ export interface VideoSession {
   ticketCode?: string;
   equipmentCode?: string;
   startedAt: string;           // ISO timestamp de début
-  endedAt: string;             // ISO timestamp de fin
+  endedAt: string | null;      // ISO timestamp de fin (null tant que la session est en direct)
   durationSeconds: number;
   participants: {
     id: string;
     name: string;
     role: string;
   }[];
-  messages: {
-    sender: string;
-    time: string;
-    text: string;
-    isAi?: boolean;
-  }[];
+  messages: VideoChatMessage[];
+  /** Utilisateurs ayant réellement rejoint l'appel (présence historique) */
+  joinedParticipants?: { id: string; name: string; at?: string }[];
+  /** Mode de l'appel choisi au lancement */
+  callMode?: 'audio' | 'video';
   /** Utilisateurs ayant déjà consulté la notification d'appel (cloche) */
   viewedBy?: { id: string; at: string }[];
   createdBy?: {

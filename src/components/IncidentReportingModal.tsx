@@ -306,13 +306,13 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
       <div className="bg-white border border-slate-200 w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden my-8">
         {/* Header */}
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
               <AlertTriangle className="w-4 h-4 text-rose-600" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Signaler une Panne d'Équipement</h2>
-              <p className="text-xs text-slate-500 font-medium">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900 truncate">Signaler une Panne d'Équipement</h2>
+              <p className="text-xs text-slate-500 font-medium truncate">
                 Formulaire guidé pour les médecins, infirmiers et utilisateurs de télémédecine
               </p>
             </div>
@@ -320,7 +320,7 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-800 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-800 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -624,7 +624,7 @@ export const IncidentReportingModal: React.FC<IncidentReportingModalProps> = ({
           </div>
 
           {/* Submit Buttons */}
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200">
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={onClose}
